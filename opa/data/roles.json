@@ -1,5 +1,4 @@
 {
-  "_comment": "Ruoli coerenti con UserRole in backend/src/types/user.ts: customer | employee | hr | admin",
   "role_hierarchy": {
     "admin":    ["admin", "hr", "employee", "customer"],
     "hr":       ["hr", "employee"],

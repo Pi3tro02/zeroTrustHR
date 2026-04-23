@@ -1,5 +1,4 @@
 {
-  "_comment": "Risorse coerenti con access_policies collection. Campi: policy_name, resource_name, allowed_roles, mfa_required, trusted_device_required (+ estesi da Policy type in backend/src/types/policy.ts)",
   "resources": [
     {
       "resource_name": "employee_records",

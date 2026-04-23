@@ -1,0 +1,22 @@
+{
+  "attributes": {
+    "request": {
+      "http": {
+        "headers": {
+          "x-user": "admin_user",
+          "x-role": "admin",
+          "x-department": "HR",
+          "x-mfa-enabled": "true",
+          "x-device-trusted": "true",
+          "x-device-status": "active",
+          "x-device-os": "Windows 11 Enterprise",
+          "x-device-ip": "10.0.1.42",
+          "x-ja3": "769,47-53-5-10-49171-49172-49161-49162-50-56-19-4,0-10-11,23-24-25,0",
+          "x-resource-name": "employee_records",
+          "x-action": "read",
+          "x-risk-score": "0.25"
+        }
+      }
+    }
+  }
+}
