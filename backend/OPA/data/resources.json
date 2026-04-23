@@ -1,0 +1,87 @@
+{
+  "_comment": "Risorse coerenti con access_policies collection. Campi: policy_name, resource_name, allowed_roles, mfa_required, trusted_device_required (+ estesi da Policy type in backend/src/types/policy.ts)",
+  "resources": [
+    {
+      "resource_name": "employee_records",
+      "resource_sensitivity": "high",
+      "allowed_roles": ["hr", "admin"],
+      "allowed_actions": ["read", "write", "update"],
+      "max_risk_score": 0.7,
+      "conditions": {
+        "mfa_required": true,
+        "trusted_device_required": true,
+        "allowed_network_zones": ["internal", "vpn"]
+      }
+    },
+    {
+      "resource_name": "payroll_data",
+      "resource_sensitivity": "critical",
+      "allowed_roles": ["admin"],
+      "allowed_actions": ["read"],
+      "max_risk_score": 0.3,
+      "conditions": {
+        "mfa_required": true,
+        "trusted_device_required": true,
+        "allowed_network_zones": ["internal"]
+      }
+    },
+    {
+      "resource_name": "leave_requests",
+      "resource_sensitivity": "medium",
+      "allowed_roles": ["hr", "employee", "admin"],
+      "allowed_actions": ["read", "write", "update"],
+      "max_risk_score": 0.7,
+      "conditions": {
+        "mfa_required": false,
+        "trusted_device_required": false
+      }
+    },
+    {
+      "resource_name": "recruitment_data",
+      "resource_sensitivity": "medium",
+      "allowed_roles": ["hr", "admin"],
+      "allowed_actions": ["read", "write", "update", "delete"],
+      "max_risk_score": 0.6,
+      "conditions": {
+        "mfa_required": true,
+        "trusted_device_required": false,
+        "allowed_network_zones": ["internal", "vpn", "dmz"]
+      }
+    },
+    {
+      "resource_name": "company_policies",
+      "resource_sensitivity": "low",
+      "allowed_roles": ["customer", "employee", "hr", "admin"],
+      "allowed_actions": ["read"],
+      "max_risk_score": 0.9,
+      "conditions": {
+        "mfa_required": false,
+        "trusted_device_required": false
+      }
+    },
+    {
+      "resource_name": "audit_logs",
+      "resource_sensitivity": "critical",
+      "allowed_roles": ["admin"],
+      "allowed_actions": ["read"],
+      "max_risk_score": 0.3,
+      "conditions": {
+        "mfa_required": true,
+        "trusted_device_required": true,
+        "allowed_network_zones": ["internal"]
+      }
+    },
+    {
+      "resource_name": "access_requests",
+      "resource_sensitivity": "high",
+      "allowed_roles": ["hr", "admin"],
+      "allowed_actions": ["read", "write"],
+      "max_risk_score": 0.5,
+      "conditions": {
+        "mfa_required": true,
+        "trusted_device_required": true,
+        "allowed_network_zones": ["internal", "vpn"]
+      }
+    }
+  ]
+}

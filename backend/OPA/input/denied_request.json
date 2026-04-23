@@ -1,0 +1,21 @@
+{
+  "_comment": "Payload inviato da Envoy a OPA — caso DENY multiplo: ruolo non autorizzato, MFA assente, device non trusted, risk_score sopra soglia.",
+  "user": {
+    "username": "bob_employee",
+    "role": "employee",
+    "mfa_enabled": false,
+    "department": "Sales"
+  },
+  "device": {
+    "trusted": false,
+    "ja3_fingerprint": "769,47-53-5-10-49171-49172,0-10-11,23-24,0",
+    "ip_address": "192.168.50.10",
+    "os": "Windows 10 Home",
+    "device_type": "laptop",
+    "status": "active"
+  },
+  "resource_name": "employee_records",
+  "action": "read",
+  "source_ip": "192.168.50.10",
+  "risk_score": 0.85
+}

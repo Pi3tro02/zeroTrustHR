@@ -1,0 +1,57 @@
+# OPA Server Configuration — zeroTrustHR
+#
+# Avvio locale (bundle da filesystem):
+#   opa run --server \
+#       --config-file opa/config/opa_config.yaml \
+#       --bundle opa/policies \
+#       --watch
+#
+# Test policies:
+#   opa test opa/policies opa/tests -v \
+#       --data opa/data/roles.json \
+#       --data opa/data/resources.json
+#
+# Query manuale (allowed_request):
+#   opa eval --data opa/data/roles.json --data opa/data/resources.json \
+#       --bundle opa/policies \
+#       --input opa/input/allowed_request.json \
+#       "data.authz.response"
+
+server:
+  addrs:
+    - "0.0.0.0:8181"
+
+# Decision log: emesso su console (in produzione: inviare a Splunk/SIEM)
+decision_logs:
+  console: true
+
+# Status log: utile per monitorare il bundle load
+status:
+  console: true
+
+# Logging strutturato JSON per integrazione con ELK/Splunk
+log:
+  level: info
+  format: json-pretty
+
+# Plugin Envoy per ext_authz gRPC (OPA as sidecar)
+# Il path "authz/response" espone il documento response di access.rego
+plugins:
+  envoy_ext_authz_grpc:
+    addr: "0.0.0.0:9191"
+    path: authz/response
+    dry-run: false
+    enable-reflection: false
+
+# Bundle remoto (abilitare in produzione con bundle server)
+# services:
+#   bundle-server:
+#     url: http://bundle-server:9000
+#
+# bundles:
+#   authz:
+#     service: bundle-server
+#     resource: /bundles/authz.tar.gz
+#     polling:
+#       min_delay_seconds: 10
+#       max_delay_seconds: 30

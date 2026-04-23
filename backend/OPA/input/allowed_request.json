@@ -1,0 +1,21 @@
+{
+  "_comment": "Payload inviato da Envoy a OPA — caso ALLOW. HR manager legge employee_records con MFA, device trusted, risk basso.",
+  "user": {
+    "username": "alice_hr",
+    "role": "hr",
+    "mfa_enabled": true,
+    "department": "HR"
+  },
+  "device": {
+    "trusted": true,
+    "ja3_fingerprint": "769,47-53-5-10-49171-49172-49161-49162-50-56-19-4,0-10-11,23-24-25,0",
+    "ip_address": "10.0.1.42",
+    "os": "Windows 11 Enterprise",
+    "device_type": "laptop",
+    "status": "active"
+  },
+  "resource_name": "employee_records",
+  "action": "read",
+  "source_ip": "10.0.1.42",
+  "risk_score": 0.25
+}

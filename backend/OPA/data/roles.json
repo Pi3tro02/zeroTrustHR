@@ -1,0 +1,32 @@
+{
+  "_comment": "Ruoli coerenti con UserRole in backend/src/types/user.ts: customer | employee | hr | admin",
+  "role_hierarchy": {
+    "admin":    ["admin", "hr", "employee", "customer"],
+    "hr":       ["hr", "employee"],
+    "employee": ["employee"],
+    "customer": ["customer"]
+  },
+  "role_descriptions": {
+    "admin":    "Amministratore di sistema con accesso completo",
+    "hr":       "HR manager con accesso a dati dipendenti e recruitment",
+    "employee": "Dipendente standard con accesso limitato",
+    "customer": "Cliente esterno con accesso minimo"
+  },
+  "sensitive_departments": ["HR", "Finance", "Legal", "Executive", "Security"],
+  "blocked_ja3_fingerprints": [],
+  "allowed_os_types": ["Windows", "macOS", "Ubuntu", "Debian", "CentOS"],
+  "allowed_network_zones": {
+    "internal": [
+      "10.0.0.0/8",
+      "172.16.0.0/12",
+      "192.168.0.0/16"
+    ],
+    "dmz": [
+      "192.168.100.0/24"
+    ],
+    "vpn": [
+      "10.8.0.0/24"
+    ],
+    "external": []
+  }
+}
