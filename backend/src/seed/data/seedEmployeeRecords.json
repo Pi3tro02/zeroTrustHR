@@ -1,0 +1,5 @@
+[
+  { "employee_id": 1, "name": "Mario Rossi", "department": "HR", "role": "Recruiter" },
+  { "employee_id": 2, "name": "Lucia Bianchi", "department": "Finance", "role": "Analyst" },
+  { "employee_id": 3, "name": "Paolo Verdi", "department": "IT", "role": "System Administrator" }
+]

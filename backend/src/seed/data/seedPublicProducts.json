@@ -1,0 +1,5 @@
+[
+  { "product_id": 1, "name": "Macbook Pro M4", "category": "Electronics", "price": 1299 },
+  { "product_id": 2, "name": "Office Chair X", "category": "Furniture", "price": 249 },
+  { "product_id": 3, "name": "Wireless Mouse", "category": "Accessories", "price": 39 }
+]

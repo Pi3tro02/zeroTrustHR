@@ -1,0 +1,5 @@
+[
+  { "policy_id": 1, "title": "Remote Work Policy", "category": "HR" },
+  { "policy_id": 2, "title": "Password Policy", "category": "Security" },
+  { "policy_id": 3, "title": "Acceptable Use Policy", "category": "IT" }
+]

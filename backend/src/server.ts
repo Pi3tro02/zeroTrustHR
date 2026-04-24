@@ -3,6 +3,7 @@ import app from "./app";
 import { connectToMongo } from "./config/db";
 import { initDb } from "./config/initDb";
 import { seedData } from "./config/seedData";
+import { seedResourceData } from "./seed";
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ async function startServer(): Promise<void> {
     await connectToMongo();
     await initDb();
     await seedData();
+    await seedResourceData();
 
     app.listen(PORT, () => {
       console.log(`Server avviato sulla porta ${PORT}`);
