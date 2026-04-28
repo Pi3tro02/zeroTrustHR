@@ -1,0 +1,12 @@
+resource_name,sensitivity,risk_multiplier,benefit_score,notes
+employee_records,high,2.5,8.0,Dati dipendenti - alta sensibilita
+payroll_data,critical,3.5,5.0,Dati salariali - massima sensibilita
+leave_requests,medium,1.0,3.0,Richieste ferie - sensibilita media
+recruitment_data,medium,1.5,4.0,Dati recruiting - sensibilita media
+company_policies,low,0.5,1.5,Policy aziendali - pubblica
+audit_logs,critical,3.0,6.0,Log di audit - massima sensibilita
+access_requests,high,2.0,4.0,Richieste accesso - alta sensibilita
+wallet_transactions,critical,3.0,5.0,Transazioni wallet - massima sensibilita
+users,high,2.5,5.0,Anagrafica utenti - alta sensibilita
+products,low,0.5,2.0,Catalogo prodotti - pubblica
+orders,medium,1.2,3.5,Ordini clienti - sensibilita media

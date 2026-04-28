@@ -23,6 +23,7 @@ allow if {
 	device.os_supported
 	risk.risk_acceptable
 	risk.access_time_valid
+	risk.user_not_blocked
 }
 
 # Raccolta dei motivi di rifiuto (uno o più possono essere presenti)
@@ -68,6 +69,11 @@ deny_reasons contains "risk_score_too_high" if {
 
 deny_reasons contains "outside_working_hours" if {
 	not risk.access_time_valid
+}
+
+# NUOVO: motivo di rifiuto per blocco BARAC
+deny_reasons contains "user_blocked_by_barac" if {
+    not risk.user_not_blocked
 }
 
 # Risposta strutturata per Envoy / PDP.

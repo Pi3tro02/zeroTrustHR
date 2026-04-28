@@ -1,36 +1,82 @@
+################################################################################
+#  ZeroTrustHR — docker-compose.yml
+#
+#  Modifiche rispetto alla versione originale:
+#    1. Aggiunto servizio Splunk con HEC abilitato
+#    2. Autenticazione MongoDB (MONGO_INITDB_ROOT_*)
+#    3. Rete Docker dedicata (zerotrust_net) per isolare i servizi
+#    4. Health checks su mongodb, opa e splunk
+#    5. Volume persistente per /opt/splunk/etc e /opt/splunk/var
+#    6. Variabili sensibili lette da .env (NON commitare .env in git!)
+################################################################################
+
 services:
+
+  # ─── Data Tier ───────────────────────────────────────────────────────────────
   mongodb:
     image: mongo:7
     container_name: zerotrust-mongodb
+    restart: unless-stopped
     ports:
       - "27017:27017"
     environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD obbligatorio}
       MONGO_INITDB_DATABASE: zerotrusthr
     volumes:
       - mongo_data:/data/db
+    networks:
+      - zerotrust_net
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
+  # ─── Backend (Node.js / TypeScript) ──────────────────────────────────────────
   backend:
     build:
       context: ./backend
     container_name: zerotrust-backend
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       PORT: 3000
-      MONGO_URI: mongodb://mongodb:27017
+      # URI con autenticazione MongoDB
+      MONGO_URI: mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASSWORD}@mongodb:27017
       DB_NAME: zerotrusthr
+      # Splunk HEC — usato da logService per inviare audit log
+      SPLUNK_HEC_URL: https://splunk:8088/services/collector/event
+      SPLUNK_HEC_TOKEN: ${SPLUNK_HEC_TOKEN:?SPLUNK_HEC_TOKEN obbligatorio}
+      # OPA — usato da splunkWebhook per aggiornare la blocklist
+      OPA_URL: http://opa:8181
+      SPLUNK_WEBHOOK_SECRET: ${SPLUNK_WEBHOOK_SECRET:?SPLUNK_WEBHOOK_SECRET obbligatorio}
+      # Disabilita verifica certificato self-signed Splunk
+      NODE_TLS_REJECT_UNAUTHORIZED: "0"
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
+      opa:
+        condition: service_started
+      splunk:
+        condition: service_healthy
+    networks:
+      - zerotrust_net
 
+  # ─── PDP — OPA ───────────────────────────────────────────────────────────────
   opa:
     image: openpolicyagent/opa:1.3.0-envoy-5-static
     container_name: zerotrust-opa
+    restart: unless-stopped
     ports:
       - "8181:8181"
       - "9191:9191"
     command:
       - "run"
       - "--server"
+      - "--addr=0.0.0.0:8181"
       - "--config-file=/app/config/opa_config.yaml"
       - "--watch"
       - "/app/data"
@@ -40,18 +86,74 @@ services:
       - ./opa/data:/app/data:ro
       - ./opa/policies:/app/policies:ro
       - ./test-input.json:/app/test-input.json:ro
+    networks:
+      - zerotrust_net
+    healthcheck:
+      test: ["CMD", "/opa", "health", "--addr", "http://localhost:8181"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
 
+  # ─── PEP — Envoy Proxy ───────────────────────────────────────────────────────
   envoy:
     image: envoyproxy/envoy:v1.31-latest
     container_name: zerotrust-envoy
+    restart: unless-stopped
     ports:
       - "10000:10000"
       - "9901:9901"
     volumes:
       - ./envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
     depends_on:
-      - backend
-      - opa
+      backend:
+        condition: service_started
+      opa:
+        condition: service_started
+    networks:
+      - zerotrust_net
 
+  # ─── SIEM — Splunk (PDP / Motore di Rischio BARAC) ───────────────────────────
+  splunk:
+    image: splunk/splunk:9.3
+    container_name: zerotrust-splunk
+    restart: unless-stopped
+    ports:
+      - "8000:8000"   # Web UI
+      - "8088:8088"   # HTTP Event Collector (HEC)
+      - "8089:8089"   # REST API / management
+    environment:
+      SPLUNK_START_ARGS: "--accept-license"
+      SPLUNK_PASSWORD: ${SPLUNK_PASSWORD:?SPLUNK_PASSWORD obbligatorio}
+      # Pre-installa l'app zerotrust montata da volume
+      #SPLUNK_APPS_URL: /opt/splunk-apps
+      # HEC abilitato — il token viene creato da inputs.conf
+      SPLUNK_HEC_TOKEN: ${SPLUNK_HEC_TOKEN}
+    volumes:
+      # App personalizzata con inputs.conf, savedsearches.conf, lookups
+      - ./splunk/apps/zerotrust_app:/opt/splunk/etc/apps/zerotrust_app
+      # Persistenza dati e indici
+      - splunk_var:/opt/splunk/var
+      #- splunk_etc:/opt/splunk/etc
+    networks:
+      - zerotrust_net
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/services/server/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 180s   # Splunk impiega ~60s ad avviarsi
+
+# ─── Reti ────────────────────────────────────────────────────────────────────
+networks:
+  zerotrust_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
+# ─── Volumi ──────────────────────────────────────────────────────────────────
 volumes:
   mongo_data:
+  splunk_var:
+  #splunk_etc:

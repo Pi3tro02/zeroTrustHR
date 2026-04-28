@@ -17,13 +17,32 @@
 #       --input opa/input/allowed_request.json \
 #       "data.authz.response"
 
+# NOTA sul formato HEC:
+#   OPA invia { "decision_id": "...", "input": {...}, "result": {...} }
+#   Splunk HEC si aspetta { "event": {...} }
+#   → La soluzione più pratica per il progetto è console: true
+#     e leggere i log OPA con il backend o un forwarder.
+#   → Per l'invio diretto a HEC decommentare `service: splunk_hec`
+#     solo se si usa un OPA bundle con custom plugin wrapper.
+
+
 server:
   addrs:
     - "0.0.0.0:8181"
 
+
+# ── Servizio Splunk HEC ───────────────────────────────────────────────────────
+services:
+  splunk_hec:
+    url: http://splunk:8088/services/collector/event
+    headers:
+      Authorization: "Splunk ${SPLUNK_OPA_TOKEN}"
+      Content-Type: "application/json"
+
 # Decision log: emesso su console (in produzione: inviare a Splunk/SIEM)
 decision_logs:
-  console: true
+  console: true   # Scrive JSON strutturato su stdout (Docker logs)
+  # service: splunk_hec  # Decommentare solo con custom HEC wrapper plugin
 
 # Status log: utile per monitorare il bundle load
 status:

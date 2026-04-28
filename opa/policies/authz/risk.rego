@@ -3,71 +3,89 @@ package authz.risk
 import rego.v1
 import data.utils.helpers as h
 
-# Soglia di rischio dalla policy della risorsa; fallback al default globale 0.7.
-# La risorsa viene letta dagli header HTTP inviati tramite Envoy.
+# ──────────────────────────────────────────────
+# Soglia di rischio
+# ──────────────────────────────────────────────
+
 risk_threshold := threshold if {
-        some policy in data.resources
-        policy.resource_name == h.resource_name
-        threshold := policy.max_risk_score
+    some policy in data.resources
+    policy.resource_name == h.resource_name
+    threshold := policy.max_risk_score
 }
 
 risk_threshold := 0.7 if {
-        not _resource_policy_exists
+    not _resource_policy_exists
 }
 
 _resource_policy_exists if {
-        some policy in data.resources
-        policy.resource_name == h.resource_name
+    some policy in data.resources
+    policy.resource_name == h.resource_name
 }
 
-# Il risk_score inviato dal chiamante deve essere strettamente inferiore alla soglia
 risk_acceptable if {
-        h.risk_score < risk_threshold
+    h.risk_score < risk_threshold
 }
 
-# Classificazione del livello di rischio per audit e log
+# ──────────────────────────────────────────────
+# Blocklist BARAC (aggiornata da Splunk via backend)
+#
+# data.authz.blocked_users viene scritto dal backend
+# quando Splunk rileva profit < 0 (webhook BARAC).
+# OPA legge la lista ad ogni valutazione → Decision Continuity.
+# ──────────────────────────────────────────────
+
+# Utente bloccato dalla blocklist BARAC
+user_not_blocked if {
+    not h.username in data.authz.blocked_users
+}
+
+# Se blocked_users non è definito, considera tutti sbloccati (fail-open controllato)
+user_not_blocked if {
+    not data.authz.blocked_users
+}
+
+# ──────────────────────────────────────────────
+# Classificazione livello di rischio
+# ──────────────────────────────────────────────
+
 risk_level := "low" if {
-        h.risk_score < 0.3
+    h.risk_score < 0.3
 }
 
 risk_level := "medium" if {
-        h.risk_score >= 0.3
-        h.risk_score < 0.6
+    h.risk_score >= 0.3
+    h.risk_score < 0.6
 }
 
 risk_level := "high" if {
-        h.risk_score >= 0.6
-        h.risk_score < risk_threshold
+    h.risk_score >= 0.6
+    h.risk_score < risk_threshold
 }
 
 risk_level := "critical" if {
-        h.risk_score >= risk_threshold
+    h.risk_score >= risk_threshold
 }
 
 # ──────────────────────────────────────────────
 # Verifica orario lavorativo (employee e hr)
 # ──────────────────────────────────────────────
 
-# Solo employee e hr sono vincolati all'orario; admin e customer non lo sono
 _time_restricted_roles := {"employee", "hr"}
 
-# Accesso temporalmente valido per ruoli non soggetti a restrizione oraria
 access_time_valid if {
-        not h.role in _time_restricted_roles
+    not h.role in _time_restricted_roles
 }
 
-# Accesso temporalmente valido se il ruolo è ristretto ma si è nell'orario lavorativo
 access_time_valid if {
-        h.role in _time_restricted_roles
-        within_working_hours
+    h.role in _time_restricted_roles
+    within_working_hours
 }
 
-# Orario lavorativo: lunedì–venerdì, 07:00–19:59 nel fuso orario Europe/Rome
 within_working_hours if {
-        tz := "Europe/Rome"
-        now := time.now_ns()
-        [hour, _, _] := time.clock([now, tz])
-        hour >= 7
-        hour < 20
-        time.weekday([now, tz]) in {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"}
+    tz := "Europe/Rome"
+    now := time.now_ns()
+    [hour, _, _] := time.clock([now, tz])
+    hour >= 7
+    hour < 20
+    time.weekday([now, tz]) in {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"}
 }
