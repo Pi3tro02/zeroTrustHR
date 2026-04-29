@@ -150,6 +150,27 @@ services:
       retries: 10
       start_period: 180s   # Splunk impiega ~60s ad avviarsi
 
+  # ─── Firewall — nftables (L3/L4) ────────────────────────────────────────────
+  nftables:
+    build:
+      context: ./nftables
+      
+    container_name: zerotrust-nftables
+
+    # CRITICO: controlla il firewall dell'host
+    network_mode: host
+
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+    # parte dopo che Docker ha portato su le interfacce
+    depends_on:
+      - envoy
+
+    # opzionale: evita restart loop se rompi la rete
+    restart: "no"
+
 # ─── Reti ────────────────────────────────────────────────────────────────────
 networks:
   zerotrust_net:
