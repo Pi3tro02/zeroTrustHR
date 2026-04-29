@@ -15,94 +15,102 @@
 
 static_resources:
   listeners:
-    - name: listener_http
+    - name: listener_https_mtls
       address:
         socket_address:
           address: 0.0.0.0
           port_value: 10000
+
       filter_chains:
-        - filters:
+        - transport_socket:
+            name: envoy.transport_sockets.tls
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+              require_client_certificate: true
+              common_tls_context:
+                tls_certificates:
+                  - certificate_chain:
+                      filename: /etc/envoy/certs/server.crt
+                    private_key:
+                      filename: /etc/envoy/certs/server.key
+                validation_context:
+                  trusted_ca:
+                    filename: /etc/envoy/certs/ca.crt
+
+          filters:
             - name: envoy.filters.network.http_connection_manager
               typed_config:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
                 stat_prefix: ingress_http
 
-                request_headers_to_add:
-                  - header:
-                    key: "x-mtls-verified"
-                    value: "true"
-                    append_action: OVERWRITE_IF_EXISTS_OR_ADD
-
-                  - header:
-                    key: "x-mtls-subject"
-                    value: "%DOWNSTREAM_PEER_SUBJECT%"
-                    append_action: OVERWRITE_IF_EXISTS_OR_ADD
-
-                # ── Access Log JSON su stdout ─────────────────────────────────
-                # Docker cattura questo output con `docker logs zerotrust-envoy`.
-                # Ogni riga è un JSON con i campi utili per Splunk BARAC:
-                #   - chi ha fatto la richiesta (x_user, x_role)
-                #   - cosa ha richiesto (path, x_resource)
-                #   - esito OPA (response_code: 403 = denied, 200 = allowed)
-                #   - metriche (duration_ms, bytes_sent)
                 access_log:
                   - name: envoy.access_loggers.stdout
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
                       log_format:
                         json_format:
-                          # ── Metadati temporali ──
-                          timestamp:        "%START_TIME%"
-                          source:           "envoy"
-                          # ── Identità (letti dagli header client) ──
-                          x_user:           "%REQ(x-user)%"
-                          x_role:           "%REQ(x-role)%"
-                          x_department:     "%REQ(x-department)%"
-                          x_resource_name:  "%REQ(x-resource-name)%"
-                          x_action:         "%REQ(x-action)%"
-                          x_risk_score:     "%REQ(x-risk-score)%"
-                          x_mfa_enabled:    "%REQ(x-mfa-enabled)%"
+                          timestamp: "%START_TIME%"
+                          source: "envoy"
+
+                          x_user: "%REQ(x-user)%"
+                          x_role: "%REQ(x-role)%"
+                          x_department: "%REQ(x-department)%"
+                          x_resource_name: "%REQ(x-resource-name)%"
+                          x_action: "%REQ(x-action)%"
+                          x_risk_score: "%REQ(x-risk-score)%"
+                          x_mfa_enabled: "%REQ(x-mfa-enabled)%"
                           x_device_trusted: "%REQ(x-device-trusted)%"
-                          x_ja3:            "%REQ(x-ja3)%"
-                          x_device_ip:      "%REQ(x-device-ip)%"
-                          # ── Rete ──
-                          client_ip:        "%DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT%"
-                          forwarded_for:    "%REQ(x-forwarded-for)%"
-                          # ── Richiesta HTTP ──
-                          method:           "%REQ(:METHOD)%"
-                          path:             "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"
-                          protocol:         "%PROTOCOL%"
-                          # ── Risposta ──
-                          response_code:    "%RESPONSE_CODE%"
-                          # outcome: 200/2xx = OPA allowed, 403 = OPA denied
-                          outcome:          "%RESPONSE_CODE_DETAILS%"
-                          duration_ms:      "%DURATION%"
-                          bytes_received:   "%BYTES_RECEIVED%"
-                          bytes_sent:       "%BYTES_SENT%"
-                          upstream_host:    "%UPSTREAM_HOST%"
+                          x_ja3: "%REQ(x-ja3)%"
+                          x_device_ip: "%REQ(x-device-ip)%"
+
+                          mtls_verified: "true"
+                          mtls_subject: "%DOWNSTREAM_PEER_SUBJECT%"
+
+                          client_ip: "%DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT%"
+                          forwarded_for: "%REQ(x-forwarded-for)%"
+
+                          method: "%REQ(:METHOD)%"
+                          path: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"
+                          protocol: "%PROTOCOL%"
+
+                          response_code: "%RESPONSE_CODE%"
+                          outcome: "%RESPONSE_CODE_DETAILS%"
+                          duration_ms: "%DURATION%"
+                          bytes_received: "%BYTES_RECEIVED%"
+                          bytes_sent: "%BYTES_SENT%"
+                          upstream_host: "%UPSTREAM_HOST%"
                           upstream_cluster: "%UPSTREAM_CLUSTER%"
 
                 route_config:
                   name: local_route
                   virtual_hosts:
                     - name: backend_service
-                      domains: ["*"]
+                      domains:
+                        - "*"
+
                       routes:
                         - match:
                             prefix: "/"
                           route:
                             cluster: backend_service
-                          # Aggiunge x-forwarded-for con IP del client
+
                           request_headers_to_add:
                             - header:
                                 key: x-forwarded-for
                                 value: "%DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT%"
-                              keep_empty_value: false
+                              append_action: OVERWRITE_IF_EXISTS_OR_ADD
+
+                            - header:
+                                key: x-mtls-verified
+                                value: "true"
+                              append_action: OVERWRITE_IF_EXISTS_OR_ADD
+
+                            - header:
+                                key: x-mtls-subject
+                                value: "%DOWNSTREAM_PEER_SUBJECT%"
+                              append_action: OVERWRITE_IF_EXISTS_OR_ADD
 
                 http_filters:
-                  # ── OPA ext_authz — Policy Decision Point ───────────────────
-                  # Ogni richiesta viene valutata da OPA prima di essere
-                  # inoltrata al backend. Se OPA risponde deny → 403 al client.
                   - name: envoy.filters.http.ext_authz
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
@@ -110,10 +118,8 @@ static_resources:
                       grpc_service:
                         envoy_grpc:
                           cluster_name: opa_ext_authz
-                        timeout: 5s          # alzato da 2s per robustezza in sviluppo
-                      failure_mode_allow: false   # se OPA è down → deny (fail-closed)
-                      # Passa tutti gli header HTTP originali a OPA
-                      # (necessario per x-user, x-role, x-risk-score, ecc.)
+                        timeout: 5s
+                      failure_mode_allow: false
                       with_request_body:
                         max_request_bytes: 8192
                         allow_partial_message: true
@@ -121,22 +127,8 @@ static_resources:
                   - name: envoy.filters.http.router
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
-      transport_socket:
-        name: envoy.transport_sockets.tls
-        typed_config:
-          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
-          require_client_certificate: true
-          common_tls_context:
-            tls_certificates:
-              - certificate_chain:
-                  filename: /etc/envoy/certs/server.crt
-                private_key:
-                  filename: /etc/envoy/certs/server.key
-            validation_context:
-              trusted_ca:
-                filename: /etc/envoy/certs/ca.crt
+
   clusters:
-    # ── Backend Node.js ───────────────────────────────────────────────────────
     - name: backend_service
       type: STRICT_DNS
       connect_timeout: 2s
@@ -151,11 +143,10 @@ static_resources:
                       address: backend
                       port_value: 3000
 
-    # ── OPA gRPC ext_authz — PDP ──────────────────────────────────────────────
     - name: opa_ext_authz
       type: STRICT_DNS
       connect_timeout: 2s
-      http2_protocol_options: {}   # gRPC richiede HTTP/2
+      http2_protocol_options: {}
       lb_policy: ROUND_ROBIN
       load_assignment:
         cluster_name: opa_ext_authz
@@ -167,7 +158,6 @@ static_resources:
                       address: opa
                       port_value: 9191
 
-# ── Admin API (non esporre in produzione) ─────────────────────────────────────
 admin:
   access_log_path: /tmp/admin_access.log
   address:

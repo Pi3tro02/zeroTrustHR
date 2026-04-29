@@ -45,7 +45,7 @@ services:
     environment:
       PORT: 3000
       # URI con autenticazione MongoDB
-      MONGO_URI: mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASSWORD}@mongodb:27017
+      MONGO_URI: mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASSWORD}@mongodb:27017/zerotrusthr?authSource=admin
       DB_NAME: zerotrusthr
       # Splunk HEC — usato da logService per inviare audit log
       SPLUNK_HEC_URL: https://splunk:8088/services/collector/event
@@ -116,7 +116,8 @@ services:
 
   # ─── SIEM — Splunk (PDP / Motore di Rischio BARAC) ───────────────────────────
   splunk:
-    image: splunk/splunk:9.3
+    image: splunk/splunk:latest
+    platform: linux/amd64
     container_name: zerotrust-splunk
     restart: unless-stopped
     ports:
@@ -125,6 +126,7 @@ services:
       - "8089:8089"   # REST API / management
     environment:
       SPLUNK_START_ARGS: "--accept-license"
+      SPLUNK_GENERAL_TERMS: "--accept-sgt-current-at-splunk-com"
       SPLUNK_PASSWORD: ${SPLUNK_PASSWORD:?SPLUNK_PASSWORD obbligatorio}
       # Pre-installa l'app zerotrust montata da volume
       #SPLUNK_APPS_URL: /opt/splunk-apps
