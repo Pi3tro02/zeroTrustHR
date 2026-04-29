@@ -1,7 +1,10 @@
 import { Router, Request, Response } from "express";
 import { getDb } from "../config/db";
+import { requireMtls } from "../middlewares/mtlsMiddleware";
 
 const router = Router();
+
+router.use(requireMtls);
 
 /**
  * Verifica che l'header x-resource-name corrisponda alla risorsa attesa

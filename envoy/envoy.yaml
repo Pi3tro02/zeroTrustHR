@@ -27,6 +27,17 @@ static_resources:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
                 stat_prefix: ingress_http
 
+                request_headers_to_add:
+                  - header:
+                    key: "x-mtls-verified"
+                    value: "true"
+                    append_action: OVERWRITE_IF_EXISTS_OR_ADD
+
+                  - header:
+                    key: "x-mtls-subject"
+                    value: "%DOWNSTREAM_PEER_SUBJECT%"
+                    append_action: OVERWRITE_IF_EXISTS_OR_ADD
+
                 # ── Access Log JSON su stdout ─────────────────────────────────
                 # Docker cattura questo output con `docker logs zerotrust-envoy`.
                 # Ogni riga è un JSON con i campi utili per Splunk BARAC:
@@ -110,7 +121,20 @@ static_resources:
                   - name: envoy.filters.http.router
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
-
+      transport_socket:
+        name: envoy.transport_sockets.tls
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+          require_client_certificate: true
+          common_tls_context:
+            tls_certificates:
+              - certificate_chain:
+                  filename: /etc/envoy/certs/server.crt
+                private_key:
+                  filename: /etc/envoy/certs/server.key
+            validation_context:
+              trusted_ca:
+                filename: /etc/envoy/certs/ca.crt
   clusters:
     # ── Backend Node.js ───────────────────────────────────────────────────────
     - name: backend_service
