@@ -52,7 +52,10 @@ services:
       SPLUNK_HEC_TOKEN: ${SPLUNK_HEC_TOKEN:?SPLUNK_HEC_TOKEN obbligatorio}
       # OPA — usato da splunkWebhook per aggiornare la blocklist
       OPA_URL: http://opa:8181
+      # Secret per autenticare webhook da Splunk (verificato in splunkWebhookController)
       SPLUNK_WEBHOOK_SECRET: ${SPLUNK_WEBHOOK_SECRET:?SPLUNK_WEBHOOK_SECRET obbligatorio}
+      # JWT — usato per autenticare le richieste interne (es. health check di Envoy)
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET obbligatorio}
       # Disabilita verifica certificato self-signed Splunk
       NODE_TLS_REJECT_UNAUTHORIZED: "0"
     depends_on:
@@ -89,11 +92,11 @@ services:
     networks:
       - zerotrust_net
     healthcheck:
-      test: ["CMD", "/opa", "health", "--addr", "http://localhost:8181"]
+      test: ["CMD", "/opa", "eval", "--server", "http://localhost:8181", "true"]
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 15s
+      start_period: 20s
 
   # ─── PEP — Envoy Proxy ───────────────────────────────────────────────────────
   envoy:
