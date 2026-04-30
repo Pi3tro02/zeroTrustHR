@@ -17,8 +17,8 @@ services:
     image: mongo:7
     container_name: zerotrust-mongodb
     restart: unless-stopped
-    ports:
-      - "27017:27017"
+    expose:
+      - "27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD obbligatorio}
@@ -40,8 +40,8 @@ services:
       context: ./backend
     container_name: zerotrust-backend
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     environment:
       PORT: 3000
       # URI con autenticazione MongoDB
@@ -73,9 +73,9 @@ services:
     image: openpolicyagent/opa:1.3.0-envoy-5-static
     container_name: zerotrust-opa
     restart: unless-stopped
-    ports:
-      - "8181:8181"
-      - "9191:9191"
+    expose:
+      - "8181"
+      - "9191"
     command:
       - "run"
       - "--server"
@@ -154,7 +154,7 @@ services:
   nftables:
     build:
       context: ./nftables
-      
+      dockerfile: Dockerfile
     container_name: zerotrust-nftables
 
     # CRITICO: controlla il firewall dell'host
@@ -163,10 +163,6 @@ services:
     cap_add:
       - NET_ADMIN
       - NET_RAW
-
-    # parte dopo che Docker ha portato su le interfacce
-    depends_on:
-      - envoy
 
     # opzionale: evita restart loop se rompi la rete
     restart: "no"
