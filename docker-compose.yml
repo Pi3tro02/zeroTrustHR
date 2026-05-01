@@ -141,6 +141,7 @@ services:
       # Persistenza dati e indici
       - splunk_var:/opt/splunk/var
       #- splunk_etc:/opt/splunk/etc
+      - ./snort/logs:/opt/splunk/var/log/snort
     networks:
       - zerotrust_net
     healthcheck:
@@ -149,6 +150,34 @@ services:
       timeout: 10s
       retries: 10
       start_period: 180s   # Splunk impiega ~60s ad avviarsi
+
+  # ─── IDS — Snort ─────────────────────────────────────────────────────────────
+  snort:
+    image: ciscotalos/snort3:latest
+    container_name: zerotrust-snort
+    restart: "no"
+
+    user: root
+
+    # Snort deve poter osservare il traffico di rete
+    network_mode: "service:envoy"
+
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+    volumes:
+      - ./snort/snort.lua:/etc/snort/snort.lua:ro
+      - ./snort/rules:/etc/snort/rules:ro
+      - ./snort/logs:/var/log/snort
+    
+    depends_on:
+      envoy:
+        condition: service_started
+
+    entrypoint: ["/home/snorty/snort3/bin/snort"]
+
+    command: "-c /etc/snort/snort.lua -i eth0 -A alert_fast -l /var/log/snort -k none"
 
   # ─── Firewall — nftables (L3/L4) ────────────────────────────────────────────
   nftables:
