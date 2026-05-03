@@ -1,17 +1,22 @@
 /**
- * backend/src/services/logService.ts  (versione aggiornata)
+ * backend/src/services/logService.ts  (Versione Enterprise)
  *
- * Rispetto alla versione originale aggiunge:
- *  - invio asincrono a Splunk HEC (fire-and-forget, non blocca la request)
- *  - sourcetype differenziato per tipo di evento
- *  - fallback silenzioso se Splunk non è raggiungibile
+ * Modifiche:
+ *  - Rimossa la dipendenza da fetch/https verso Splunk.
+ *  - Aggiunto 'pino' per il logging NDJSON (Newline Delimited JSON) su stdout.
+ *  - Delega la spedizione dei log al Logging Driver nativo di Docker.
  */
 
 import { getDb } from "../config/db";
 import { AuditLog, AuditOutcome } from "../types/auditLog";
-import https from "https";
+import pino from "pino";
 
-const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+// Inizializza Pino per produrre JSON ottimizzato sullo Standard Output
+const logger = pino({
+  level: 'info',
+  // Usa il formato ISO8601 per i timestamp, che Splunk digerisce nativamente
+  timestamp: pino.stdTimeFunctions.isoTime, 
+});
 
 interface LogEventParams {
   user_id?: string;
@@ -26,66 +31,9 @@ interface LogEventParams {
   details?: Record<string, unknown>;
 }
 
-// ─── Splunk HEC ───────────────────────────────────────────────────────────────
-
 /**
- * Invia un evento a Splunk HEC in modo asincrono (fire-and-forget).
- * Non solleva eccezioni: un log drop non deve mai bloccare la business logic.
- */
-async function sendToSplunk(logDoc: AuditLog): Promise<void> {
-  const hecUrl = process.env.SPLUNK_HEC_URL;
-  const hecToken = process.env.SPLUNK_HEC_TOKEN;
-
-  if (!hecUrl || !hecToken) return; // Splunk non configurato — skip silenzioso
-
-  // Scegli sourcetype in base al tipo di azione
-  const sourcetype = logDoc.action.startsWith("SPLUNK_")
-    ? "zerotrust:splunk_internal"
-    : logDoc.action === "ACCESS_REQUEST"
-    ? "zerotrust:access"
-    : "zerotrust:audit";
-
-  const hecPayload = {
-    time: Math.floor(new Date(logDoc.timestamp).getTime() / 1000),
-    index: "zerotrust",
-    sourcetype,
-    source: "backend_node",
-    event: {
-      ...logDoc,
-      // Assicura che timestamp sia stringa ISO per Splunk
-      timestamp: new Date(logDoc.timestamp).toISOString(),
-    },
-  };
-
-  try {
-    const res = await fetch(hecUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Splunk ${hecToken}`,
-      },
-      body: JSON.stringify(hecPayload),
-      signal: AbortSignal.timeout(3000), // timeout 3s
-      // @ts-ignore
-      agent: httpsAgent,
-    });
-
-    if (!res.ok) {
-      console.warn(`[logService] Splunk HEC risposta non OK: ${res.status}`);
-    }
-  } catch (err) {
-    // Non loggare su console in produzione per evitare loop
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[logService] Splunk HEC non raggiungibile:", (err as Error).message);
-    }
-  }
-}
-
-// ─── Funzione principale ──────────────────────────────────────────────────────
-
-/**
- * Salva un evento nel registro di audit MongoDB
- * e lo inoltra a Splunk HEC in modo asincrono.
+ * Salva un evento nel registro di audit MongoDB (Local Audit Trail)
+ * e lo logga su Stdout per l'inoltro a Splunk tramite Docker.
  */
 export async function logEvent({
   user_id,
@@ -115,9 +63,22 @@ export async function logEvent({
     details,
   };
 
-  // 1. Salva su MongoDB (await — la persistenza locale è obbligatoria)
+  // 1. Salva su MongoDB (System of Record per l'applicazione)
+  // L'await garantisce che l'azione sia registrata localmente
   await db.collection("audit_logs").insertOne(logDoc);
 
-  // 2. Invia a Splunk HEC (fire-and-forget — non await intenzionale)
-  sendToSplunk(logDoc).catch(() => {});
+  // 2. Determina il sourcetype per Splunk
+  const sourcetype = logDoc.action.startsWith("SPLUNK_")
+    ? "zerotrust:splunk_internal"
+    : logDoc.action === "ACCESS_REQUEST"
+    ? "zerotrust:access"
+    : "zerotrust:audit";
+
+  // 3. Logga su Stdout in formato JSON strutturato
+  // NIENTE PIÙ FETCH! Docker catturerà questo output e lo inoltrerà all'HEC
+  logger.info({
+    event: logDoc,
+    sourcetype: sourcetype,
+    source: "backend_node_pino"
+  });
 }

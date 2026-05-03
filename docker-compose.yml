@@ -23,6 +23,9 @@ services:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD obbligatorio}
       MONGO_INITDB_DATABASE: zerotrusthr
+    depends_on:
+      splunk:
+        condition: service_healthy
     volumes:
       - mongo_data:/data/db
     networks:
@@ -33,6 +36,15 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    logging:
+      driver: splunk
+      options:
+        splunk-url: "https://host.docker.internal:8088" # Usa lo stesso URL che ha funzionato per gli altri
+        splunk-token: "${SPLUNK_HEC_TOKEN}"
+        splunk-insecureskipverify: "true"
+        splunk-format: "json"
+        splunk-sourcetype: "mongodb_json"
+        tag: "docker-{{.Name}}"
 
   # ─── Backend (Node.js / TypeScript) ──────────────────────────────────────────
   backend:
@@ -60,13 +72,22 @@ services:
       NODE_TLS_REJECT_UNAUTHORIZED: "0"
     depends_on:
       mongodb:
-        condition: service_healthy
+        condition: service_started
       opa:
         condition: service_started
       splunk:
         condition: service_healthy
     networks:
       - zerotrust_net
+    logging:
+      driver: splunk
+      options:
+        splunk-url: "https://host.docker.internal:8088" # Usa localhost se il comando docker-compose gira sull'host, o l'IP di Splunk
+        splunk-token: "${SPLUNK_HEC_TOKEN}"
+        splunk-insecureskipverify: "true"
+        splunk-format: "json" # Fondamentale per dire a Splunk che il payload è JSON
+        splunk-sourcetype: "backend_node_pino" # Sourcetype di default se non specificato
+        tag: "docker-{{.Name}}" # Aiuta a distinguere da quale container arriva
 
   # ─── PDP — OPA ───────────────────────────────────────────────────────────────
   opa:
@@ -97,6 +118,18 @@ services:
       timeout: 3s
       retries: 5
       start_period: 20s
+    depends_on:
+      splunk:
+        condition: service_healthy
+    logging:
+      driver: splunk
+      options:
+        splunk-url: "https://host.docker.internal:8088"
+        splunk-token: "${SPLUNK_HEC_TOKEN}"
+        splunk-insecureskipverify: "true"
+        splunk-format: "json"
+        splunk-sourcetype: "opa_decision"
+        tag: "docker-{{.Name}}"
 
   # ─── PEP — Envoy Proxy ───────────────────────────────────────────────────────
   envoy:
@@ -114,8 +147,19 @@ services:
         condition: service_started
       opa:
         condition: service_started
+      splunk:
+        condition: service_healthy
     networks:
       - zerotrust_net
+    logging:
+      driver: splunk
+      options:
+        splunk-url: "https://host.docker.internal:8088"
+        splunk-token: "${SPLUNK_HEC_TOKEN}"
+        splunk-insecureskipverify: "true"
+        splunk-format: "json"
+        splunk-sourcetype: "envoy_access"
+        tag: "docker-{{.Name}}"
 
   # ─── SIEM — Splunk (PDP / Motore di Rischio BARAC) ───────────────────────────
   splunk:
@@ -145,11 +189,13 @@ services:
     networks:
       - zerotrust_net
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8000/services/server/health"]
+      # Usiamo -k perché il certificato HTTPS di Splunk è self-signed.
+      # Interroghiamo direttamente l'endpoint di salute dell'HEC sulla porta 8088.
+      test: ["CMD-SHELL", "curl -ksf https://localhost:8088/services/collector/health/1.0 || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 10
-      start_period: 180s   # Splunk impiega ~60s ad avviarsi
+      retries: 15
+      start_period: 340s   # Splunk impiega ~60s ad avviarsi
 
   # ─── IDS — Snort ─────────────────────────────────────────────────────────────
   snort:
@@ -177,24 +223,33 @@ services:
 
     entrypoint: ["/home/snorty/snort3/bin/snort"]
 
-    command: "-c /etc/snort/snort.lua -i eth0 -A alert_fast -l /var/log/snort -k none"
+    #command: "-c /etc/snort/snort.lua -i eth0 -A alert_fast -l /var/log/snort -k none"
+    command: "-c /etc/snort/snort.lua -i eth0 -A alert_json -l /var/log/snort -k none"
 
-  # ─── Firewall — nftables (L3/L4) ────────────────────────────────────────────
+# ─── Firewall — nftables (L3/L4) ────────────────────────────────────────────
   nftables:
     build:
       context: ./nftables
       dockerfile: Dockerfile
     container_name: zerotrust-nftables
-
-    # CRITICO: controlla il firewall dell'host
+    # In Docker Desktop, network_mode: host si attacca alla VM WSL2.
     network_mode: host
-
     cap_add:
       - NET_ADMIN
       - NET_RAW
-
-    # opzionale: evita restart loop se rompi la rete
     restart: "no"
+    depends_on:                          
+      splunk:                             
+        condition: service_healthy
+    # Aggiungi il blocco logging per inviare i dati a Splunk!
+    logging:
+      driver: splunk
+      options:
+        splunk-url: "https://host.docker.internal:8088" # host.docker.internal è un trucco per raggiungere Splunk su Windows
+        splunk-token: "${SPLUNK_HEC_TOKEN}"
+        splunk-insecureskipverify: "true"
+        splunk-format: "json"
+        splunk-sourcetype: "nftables_json"
 
 # ─── Reti ────────────────────────────────────────────────────────────────────
 networks:

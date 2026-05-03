@@ -21,6 +21,11 @@ static_resources:
           address: 0.0.0.0
           port_value: 10000
 
+      listener_filters:
+        - name: "envoy.filters.listener.tls_inspector"
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+
       filter_chains:
         - transport_socket:
             name: envoy.transport_sockets.tls
@@ -109,6 +114,21 @@ static_resources:
                                 key: x-mtls-subject
                                 value: "%DOWNSTREAM_PEER_SUBJECT%"
                               append_action: OVERWRITE_IF_EXISTS_OR_ADD
+                          # ---> SICUREZZA MUTA (Prevenzione Header Spoofing) <---
+                          # Decommentare queste righe in Produzione/Demo finale.
+                          # Se decommentate, i test su Postman falliranno (403) perché 
+                          # il client non potrà più falsificare le proprie identità.
+                          # request_headers_to_remove:
+                          #   - "x-user"
+                          #   - "x-role"
+                          #   - "x-department"
+                          #   - "x-mfa-enabled"
+                          #   - "x-device-trusted"
+                          #   - "x-device-status"
+                          #   - "x-device-os"
+                          #   - "x-device-ip"
+                          #   - "x-ja3"
+                          #   - "x-risk-score"
 
                 http_filters:
                   - name: envoy.filters.http.ext_authz
