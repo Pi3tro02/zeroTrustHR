@@ -113,7 +113,7 @@ services:
     networks:
       - zerotrust_net
     healthcheck:
-      test: ["CMD", "/opa", "eval", "--server", "http://localhost:8181", "true"]
+      test: ["CMD", "/opa", "eval", "true"]
       interval: 10s
       timeout: 3s
       retries: 5
