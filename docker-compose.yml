@@ -52,8 +52,8 @@ services:
       context: ./backend
     container_name: zerotrust-backend
     restart: unless-stopped
-    expose:
-      - "3000"
+    ports:
+      - "3000:3000"
     environment:
       PORT: 3000
       # URI con autenticazione MongoDB
@@ -70,6 +70,14 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET obbligatorio}
       # Disabilita verifica certificato self-signed Splunk
       NODE_TLS_REJECT_UNAUTHORIZED: "0"
+
+      SPLUNK_BASE_URL: ${SPLUNK_BASE_URL}
+      SPLUNK_USERNAME: ${SPLUNK_USERNAME}
+      SPLUNK_PASSWORD: ${SPLUNK_PASSWORD}
+      SPLUNK_WINDOW: ${SPLUNK_WINDOW}
+      SPLUNK_SEARCH_OWNER: ${SPLUNK_SEARCH_OWNER}
+      SPLUNK_SEARCH_APP: ${SPLUNK_SEARCH_APP}
+
     depends_on:
       mongodb:
         condition: service_started

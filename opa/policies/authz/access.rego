@@ -84,5 +84,11 @@ response := {
 	"user": h.username,
 	"resource": h.resource_name,
 	"action": h.action,
-	"risk_score": h.risk_score,
+	"risk_score": risk.risk_score,
+	"risk_source": risk.risk_source,
+	"risk_severity": risk.risk_severity,
+	"risk_profit": risk.risk_profit,
+	"risk_http_status": risk.risk_http_status,
+	"risk_http_body": risk.risk_http_body,
+	"risk_http_error": risk.risk_http_error,
 }
