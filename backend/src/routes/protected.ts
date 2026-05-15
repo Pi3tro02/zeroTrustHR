@@ -2,10 +2,12 @@ import { Router, Request, Response } from "express";
 import { getDb } from "../config/db";
 import { requireMtls } from "../middlewares/mtlsMiddleware";
 import { requireJwt } from "../middlewares/jwtMiddleware";
+import { requireTrustedDevice } from "../middlewares/deviceAuth";
 
 const router = Router();
 
 router.use(requireMtls);
+router.use(requireTrustedDevice);
 router.use(requireJwt);
 
 /**

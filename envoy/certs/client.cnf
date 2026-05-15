@@ -1,0 +1,21 @@
+[ req ]
+default_bits       = 2048
+default_md         = sha256
+prompt             = no
+distinguished_name = dn
+req_extensions     = req_ext
+
+[ dn ]
+C  = IT
+ST = Italy
+L  = Ancona
+O  = ZeroTrustHR
+OU = ClientDevice
+CN = admin-laptop-001
+
+[ req_ext ]
+subjectAltName = @alt_names
+
+[ alt_names ]
+URI.1 = urn:zerotrusthr:device:admin-laptop-001
+DNS.1 = admin-laptop-001

@@ -48,6 +48,14 @@ static_resources:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
                 stat_prefix: ingress_http
 
+                forward_client_cert_details: SANITIZE_SET
+                set_current_client_cert_details:
+                  subject: true
+                  uri: true
+                  dns: true
+                  cert: true
+                  chain: true
+
                 access_log:
                   - name: envoy.access_loggers.stdout
                     typed_config:
@@ -140,6 +148,7 @@ static_resources:
                           cluster_name: opa_ext_authz
                         timeout: 5s
                       failure_mode_allow: false
+                      include_peer_certificate: true
                       with_request_body:
                         max_request_bytes: 8192
                         allow_partial_message: true
