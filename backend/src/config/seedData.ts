@@ -38,8 +38,10 @@ export async function seedData(): Promise<void> {
     username: "admin"
   });
 
+  let adminId = existingAdmin?._id.toString();
+
   if (!existingAdmin) {
-    const adminId = await registerUser({
+    const insertedAdminId = await registerUser({
       username: "admin",
       password: "admin123",
       role: "admin",
@@ -51,28 +53,51 @@ export async function seedData(): Promise<void> {
       created_by: "system"
     });
 
+    adminId = insertedAdminId.toString();
+
+    console.log("Utente admin iniziale creato");
+  }
+
+  if (adminId) {
     const existingDevice = await db.collection("devices").findOne({
-      user_id: adminId.toString(),
+      user_id: adminId,
       device_name: "Admin Laptop"
     });
 
+    const hardwareBoundDevice = {
+      device_id: "admin-laptop-001",
+      hardware_key_type: "secure_enclave" as const,
+      certificate_subject: "C=IT, ST=Italy, L=Ancona, O=ZeroTrustHR, OU=ClientDevice, CN=admin-laptop-001",
+      certificate_san_uri: "urn:zerotrusthr:device:admin-laptop-001",
+      trusted: true,
+      status: "active" as const,
+      updated_at: new Date()
+    };
+
     if (!existingDevice) {
       const deviceDoc = createDevice({
-        user_id: adminId.toString(),
+        device_id: hardwareBoundDevice.device_id,
+        user_id: adminId,
         device_name: "Admin Laptop",
         device_type: "laptop",
         os: "macOS",
         ip_address: "192.168.1.10",
-        trusted: true,
+        trusted: hardwareBoundDevice.trusted,
+        hardware_key_type: hardwareBoundDevice.hardware_key_type,
+        certificate_subject: hardwareBoundDevice.certificate_subject,
+        certificate_san_uri: hardwareBoundDevice.certificate_san_uri,
         ja3_fingerprint: "sample_ja3_hash",
-        status: "active"
+        status: hardwareBoundDevice.status
       });
 
       await db.collection("devices").insertOne(deviceDoc);
       console.log("Device iniziale creato");
+    } else {
+      await db.collection("devices").updateOne(
+        { _id: existingDevice._id },
+        { $set: hardwareBoundDevice }
+      );
     }
-
-    console.log("Utente admin iniziale creato");
   }
 
   console.log("Seed completato");

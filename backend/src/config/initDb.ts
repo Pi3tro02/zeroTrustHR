@@ -10,6 +10,7 @@ export async function initDb(): Promise<void> {
   await db.collection("users").createIndex({ email: 1 }, { unique: true });
 
   await db.collection("devices").createIndex({ user_id: 1 });
+  await db.collection("devices").createIndex({ device_id: 1 }, { unique: true });
   await db.collection("devices").createIndex({ trusted: 1 });
 
   await db.collection("access_policies").createIndex({ policy_name: 1 }, { unique: true });

@@ -154,7 +154,7 @@ _resource_policy_exists if {
 }
 
 risk_acceptable if {
-    risk_score < risk_threshold
+    risk_score <= risk_threshold
 }
 
 # ──────────────────────────────────────────────

@@ -1,0 +1,14 @@
+{
+  "trusted_devices": [
+    {
+      "device_id": "admin-laptop-001",
+      "certificate_san_uri": "urn:zerotrusthr:device:admin-laptop-001",
+      "hardware_key_type": "secure_enclave",
+      "trusted": true,
+      "status": "active",
+      "os": "macOS",
+      "ip_address": "192.168.1.10",
+      "ja3_fingerprint": "sample_ja3_hash"
+    }
+  ]
+}

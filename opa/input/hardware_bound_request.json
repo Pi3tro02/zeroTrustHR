@@ -1,0 +1,17 @@
+{
+  "_comment": "Payload Envoy ext_authz: JWT + certificato device hardware-bound via XFCC.",
+  "attributes": {
+    "request": {
+      "http": {
+        "method": "GET",
+        "headers": {
+          "authorization": "Bearer eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJ1c2VyIjoiYWRtaW5fdXNlciIsInJvbGUiOiJhZG1pbiIsImRlcGFydG1lbnQiOiJIUiIsIm1mYV9lbmFibGVkIjp0cnVlfQ.",
+          "x-resource-name": "employee_records",
+          "x-mfa-enabled": "true",
+          "x-risk-score": "0.25",
+          "x-forwarded-client-cert": "By=spiffe://envoy;Hash=abc;Subject=\"CN=admin-laptop-001\";URI=urn:zerotrusthr:device:admin-laptop-001"
+        }
+      }
+    }
+  }
+}

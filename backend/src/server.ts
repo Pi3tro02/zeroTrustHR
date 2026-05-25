@@ -6,6 +6,7 @@ import { connectToMongo, getDb } from "./config/db"; // Aggiunto getDb
 import { initDb } from "./config/initDb";
 import { seedData } from "./config/seedData";
 import { seedResourceData } from "./seed";
+import { syncTrustedDevicesToOpa } from "./services/opaDeviceSyncService";
 
 dotenv.config();
 
@@ -38,6 +39,15 @@ async function syncOpaBlocklistOnStartup(): Promise<void> {
   }
 }
 
+async function syncOpaTrustedDevicesOnStartup(): Promise<void> {
+  try {
+    await syncTrustedDevicesToOpa();
+    console.log("[OPA Sync] Device trusted sincronizzati con successo");
+  } catch (error) {
+    console.error("[OPA Sync] Impossibile sincronizzare i device trusted:", (error as Error).message);
+  }
+}
+
 async function startServer(): Promise<void> {
   try {
     await connectToMongo();
@@ -47,6 +57,7 @@ async function startServer(): Promise<void> {
     
     // Sincronizziamo OPA prima di accettare richieste
     await syncOpaBlocklistOnStartup();
+    await syncOpaTrustedDevicesOnStartup();
 
     app.listen(PORT, () => {
       console.log(`Server avviato sulla porta ${PORT}`);

@@ -1,12 +1,16 @@
-import { Device, DeviceStatus, DeviceType } from "../types/device";
+import { Device, DeviceStatus, DeviceType, HardwareKeyType } from "../types/device";
 
 interface CreateDeviceParams {
+  device_id: string;
   user_id: string;
   device_name: string;
   device_type: DeviceType;
   os: string;
   ip_address: string;
   trusted?: boolean;
+  hardware_key_type?: HardwareKeyType;
+  certificate_subject?: string | null;
+  certificate_san_uri?: string | null;
   ja3_fingerprint?: string | null;
   status?: DeviceStatus;
 }
@@ -20,24 +24,32 @@ interface CreateDeviceParams {
  * - revoked indica un device revocato/non più ammesso
  */
 export function createDevice({
+  device_id,
   user_id,
   device_name,
   device_type,
   os,
   ip_address,
   trusted = false,
+  hardware_key_type = "software",
+  certificate_subject = null,
+  certificate_san_uri = null,
   ja3_fingerprint = null,
   status = "active"
 }: CreateDeviceParams): Device {
   const now = new Date();
 
   return {
+    device_id,
     user_id,
     device_name,
     device_type,
     os,
     ip_address,
     trusted,
+    hardware_key_type,
+    certificate_subject,
+    certificate_san_uri,
     ja3_fingerprint,
     status,
     last_seen: now,

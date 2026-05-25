@@ -47,6 +47,31 @@ services:
         tag: "docker-{{.Name}}"
 
   # ─── Backend (Node.js / TypeScript) ──────────────────────────────────────────
+  ca:
+    build:
+      context: ./ca-service
+    container_name: zerotrust-ca
+    restart: unless-stopped
+    expose:
+      - "4000"
+    environment:
+      PORT: 4000
+      CA_CERT_PATH: /ca/ca.crt
+      CA_KEY_PATH: /ca/ca.key
+      CA_SERIAL_PATH: /tmp/zerotrusthr-ca.srl
+      CA_SERVICE_TOKEN: ${CA_SERVICE_TOKEN:-dev-ca-token}
+    volumes:
+      - ./envoy/certs/ca.crt:/ca/ca.crt:ro
+      - ./envoy/certs/ca.key:/ca/ca.key:ro
+    networks:
+      - zerotrust_net
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
   backend:
     build:
       context: ./backend
@@ -64,6 +89,9 @@ services:
       SPLUNK_HEC_TOKEN: ${SPLUNK_HEC_TOKEN:?SPLUNK_HEC_TOKEN obbligatorio}
       # OPA — usato da splunkWebhook per aggiornare la blocklist
       OPA_URL: http://opa:8181
+      # CA interna — firma CSR device senza esporre ca.key al backend
+      CA_SERVICE_URL: http://ca:4000
+      CA_SERVICE_TOKEN: ${CA_SERVICE_TOKEN:-dev-ca-token}
       # Secret per autenticare webhook da Splunk (verificato in splunkWebhookController)
       SPLUNK_WEBHOOK_SECRET: ${SPLUNK_WEBHOOK_SECRET:?SPLUNK_WEBHOOK_SECRET obbligatorio}
       # JWT — usato per autenticare le richieste interne (es. health check di Envoy)
@@ -79,6 +107,8 @@ services:
       SPLUNK_SEARCH_APP: ${SPLUNK_SEARCH_APP}
 
     depends_on:
+      ca:
+        condition: service_healthy
       mongodb:
         condition: service_started
       opa:

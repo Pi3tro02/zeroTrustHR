@@ -8,7 +8,14 @@ function extractDeviceIdFromXfcc(xfcc: string): string | null {
         return null;
     }
 
-    return decodeURIComponent(uriMatch[1]);
+    const uri = decodeURIComponent(uriMatch[1]);
+    const prefix = "urn:zerotrusthr:device:";
+
+    if (!uri.startsWith(prefix)) {
+        return null;
+    }
+
+    return uri.slice(prefix.length);
 }
 
 export async function requireTrustedDevice(req: Request, res: Response, next: NextFunction) {
@@ -31,15 +38,23 @@ export async function requireTrustedDevice(req: Request, res: Response, next: Ne
 
         const db = getDb();
 
-        const device = await db.collection("devices").findOne({
+        const device = await db.collection("devices").findOneAndUpdate({
             device_id: deviceId,
             trusted: true,
-            status: "active"
+            status: "active",
+            hardware_key_type: { $in: ["tpm", "secure_enclave", "android_keystore"] }
+        }, {
+            $set: {
+                last_seen: new Date(),
+                updated_at: new Date()
+            }
+        }, {
+            returnDocument: "after"
         });
 
         if (!device) {
             return res.status(403).json({
-                error: "Untrusted or inactive device"
+                error: "Untrusted, inactive, or non hardware-bound device"
             });
         }
 

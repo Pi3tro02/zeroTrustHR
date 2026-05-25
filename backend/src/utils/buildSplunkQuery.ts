@@ -18,6 +18,7 @@ search index=zerotrust sourcetype=opa_decision earliest=${window} latest=now
 | spath path=line.result.user output=username
 | spath path=line.result.resource output=resource_name
 | spath path=line.result.allowed output=allowed
+| spath path=line.result.deny_reasons{} output=deny_reasons
 | spath path=line.input.attributes.request.http.headers.x-device-ip output=device_ip
 | spath path=line.input.attributes.request.http.headers.x-ja3 output=ja3
 | spath path=line.input.attributes.request.http.headers.x-device-trusted output=device_trusted
@@ -29,13 +30,16 @@ search index=zerotrust sourcetype=opa_decision earliest=${window} latest=now
 | eval trusted_str=lower(tostring(device_trusted))
 | eval is_deny=if(allowed_str="false",1,0)
 | eval is_allow=if(allowed_str="true",1,0)
+| eval deny_reasons_joined=mvjoin(deny_reasons,",")
+| eval is_risk_only_deny=if(is_deny=1 AND deny_reasons_joined="risk_score_too_high",1,0)
 | eval trusted_penalty=if(trusted_str="false",0.5,0)
-| eval event_risk_penalty=(is_deny*risk_multiplier)+trusted_penalty
+| eval event_risk_penalty=((is_deny-is_risk_only_deny)*risk_multiplier)+trusted_penalty
 | eval benefit_gained=is_allow*benefit_score
 | stats
     sum(event_risk_penalty) AS total_risk
     sum(benefit_gained) AS total_benefit
     count(eval(is_deny=1)) AS recent_denies
+    count(eval(is_risk_only_deny=1)) AS risk_only_denies
     count(eval(is_allow=1)) AS recent_allows
     dc(device_ip) AS distinct_device_ips
     dc(ja3) AS distinct_ja3
@@ -61,6 +65,6 @@ search index=zerotrust sourcetype=opa_decision earliest=${window} latest=now
     profit>=-10,0.8,
     true(),0.95
   )
-| table username risk_score severity profit risk_cover recent_denies recent_allows distinct_device_ips distinct_ja3 distinct_trust_states
+| table username risk_score severity profit risk_cover recent_denies risk_only_denies recent_allows distinct_device_ips distinct_ja3 distinct_trust_states
 `.trim();
 }
