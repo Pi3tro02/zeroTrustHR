@@ -91,6 +91,7 @@ risk_api_response := resp if {
 risk_service_ok if {
     risk_api_response.status_code == 200
     object.get(risk_api_response.body, "risk_score", null) != null
+    object.get(risk_api_response.body, "source", "") != "fallback"
 }
 
 # ──────────────────────────────────────────────

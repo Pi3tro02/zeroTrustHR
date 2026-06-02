@@ -1,7 +1,9 @@
 // Endpoint HTTP
 import { Router } from "express";
 import { requireJwt } from "../middlewares/jwtMiddleware";
+import { requireAdmin } from "../middlewares/adminGuard";
 import { enrollDevice, approveDevice } from "../services/deviceEnrollmentService";
+import { syncTrustedDevicesToOpa } from "../services/opaDeviceSyncService";
 
 const router = Router();
 
@@ -20,24 +22,38 @@ router.post("/enroll", requireJwt, async (req, res) => {
     }
 });
 
-router.post("/:deviceId/approve", requireJwt, async (req, res) => {
-    const { deviceId } = req.params;
-  
-    if (!deviceId || Array.isArray(deviceId)) {
-      return res.status(400).json({
-        message: "deviceId non valido"
-      });
-    }
-  
-    try {
-      const result = await approveDevice(deviceId);
-  
-      return res.status(200).json(result);
-    } catch (error) {
-      return res.status(400).json({
-        message: (error as Error).message
-      });
-    }
-  });
+router.post("/sync-opa", requireJwt, requireAdmin, async (_req, res) => {
+  try {
+    await syncTrustedDevicesToOpa();
+
+    return res.status(200).json({
+      message: "Trusted devices sincronizzati verso OPA"
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: (error as Error).message
+    });
+  }
+});
+
+router.post("/:deviceId/approve", requireJwt, requireAdmin, async (req, res) => {
+  const { deviceId } = req.params;
+
+  if (!deviceId || Array.isArray(deviceId)) {
+    return res.status(400).json({
+      message: "deviceId non valido"
+    });
+  }
+
+  try {
+    const result = await approveDevice(deviceId);
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({
+      message: (error as Error).message
+    });
+  }
+});
 
 export default router;

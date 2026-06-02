@@ -157,6 +157,83 @@ static_resources:
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
 
+    - name: listener_https_enrollment
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 10001
+
+      listener_filters:
+        - name: "envoy.filters.listener.tls_inspector"
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+
+      filter_chains:
+        - transport_socket:
+            name: envoy.transport_sockets.tls
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+              common_tls_context:
+                tls_certificates:
+                  - certificate_chain:
+                      filename: /etc/envoy/certs/server.crt
+                    private_key:
+                      filename: /etc/envoy/certs/server.key
+
+          filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: enrollment_http
+
+                access_log:
+                  - name: envoy.access_loggers.stdout
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
+                      log_format:
+                        json_format:
+                          timestamp: "%START_TIME%"
+                          source: "envoy-enrollment"
+                          method: "%REQ(:METHOD)%"
+                          path: "%REQ(:PATH)%"
+                          protocol: "%PROTOCOL%"
+                          response_code: "%RESPONSE_CODE%"
+                          outcome: "%RESPONSE_CODE_DETAILS%"
+                          duration_ms: "%DURATION%"
+                          client_ip: "%DOWNSTREAM_REMOTE_ADDRESS_WITHOUT_PORT%"
+                          upstream_host: "%UPSTREAM_HOST%"
+                          upstream_cluster: "%UPSTREAM_CLUSTER%"
+
+                route_config:
+                  name: enrollment_route
+                  virtual_hosts:
+                    - name: enrollment_backend
+                      domains:
+                        - "*"
+
+                      routes:
+                        - match:
+                            prefix: "/api/devices/enroll"
+                          route:
+                            cluster: backend_service
+
+                        - match:
+                            prefix: "/health"
+                          route:
+                            cluster: backend_service
+
+                        - match:
+                            prefix: "/"
+                          direct_response:
+                            status: 404
+                            body:
+                              inline_string: "Enrollment listener: route non consentita"
+
+                http_filters:
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
   clusters:
     - name: backend_service
       type: STRICT_DNS

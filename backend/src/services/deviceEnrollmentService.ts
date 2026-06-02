@@ -68,12 +68,27 @@ export async function approveDevice(deviceId: string) {
     const db = getDb();
 
     const device = await db.collection("devices").findOne({
-        device_id: deviceId,
-        status: "pending"
+        device_id: deviceId
     });
 
     if (!device) {
-        throw new Error("Device pending non trovato");
+        throw new Error("Device non trovato");
+    }
+
+    if (device.status === "active" && device.certificate_pem) {
+        return {
+            message: "Device già approvato",
+            device_id: deviceId,
+            certificate_pem: device.certificate_pem
+        };
+    }
+
+    if (device.status !== "pending") {
+        throw new Error(`Device non approvabile nello stato corrente: ${device.status}`);
+    }
+
+    if (!device.csr_pem || !device.certificate_san_uri) {
+        throw new Error("Device pending privo di CSR o SAN URI");
     }
 
     const certificatePem = await signDeviceCsr({
