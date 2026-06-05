@@ -1,11 +1,13 @@
 export async function signDeviceCsr({
     csrPem,
     deviceId,
-    sanUri
+    sanUri,
+    publicKeyPem
 }: {
     csrPem: string;
     deviceId: string;
     sanUri: string;
+    publicKeyPem: string;
 }): Promise<string> {
     const caServiceUrl = process.env.CA_SERVICE_URL ?? "http://ca:4000";
     const caServiceToken = process.env.CA_SERVICE_TOKEN ?? "dev-ca-token";
@@ -19,7 +21,8 @@ export async function signDeviceCsr({
         body: JSON.stringify({
             csr_pem: csrPem,
             device_id: deviceId,
-            san_uri: sanUri
+            san_uri: sanUri,
+            public_key_pem: publicKeyPem
         })
     });
 

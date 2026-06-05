@@ -1,5 +1,5 @@
 // Registra device, approva device, firma CSR, aggiorna Mongo, sincronizza OPA
-import { randomUUID } from "crypto";
+import { createVerify, randomBytes, randomUUID } from "crypto";
 import { getDb } from "../config/db";
 import { createDevice } from "../models/deviceModel";
 import { signDeviceCsr } from "./certificateService";
@@ -7,23 +7,32 @@ import { syncTrustedDevicesToOpa } from "./opaDeviceSyncService";
 import { DeviceType, HardwareKeyType } from "../types/device";
 
 const allowedDeviceTypes: DeviceType[] = ["laptop", "desktop", "smartphone", "tablet", "server", "other"];
-const allowedHardwareKeyTypes: HardwareKeyType[] = ["tpm", "secure_enclave", "android_keystore"];
+const allowedHardwareKeyTypes: HardwareKeyType[] = ["tpm", "secure_enclave"];
 
-export async function enrollDevice({
-    user, 
+function verifyHardwareChallengeSignature(params: {
+    publicKeyPem: string;
+    challenge: string;
+    signatureBase64: string;
+}) {
+    const verifier = createVerify("sha256");
+    verifier.update(params.challenge);
+    verifier.end();
+
+    return verifier.verify(
+        params.publicKeyPem,
+        Buffer.from(params.signatureBase64, "base64")
+    );
+}
+
+export async function createEnrollmentChallenge({
+    user,
     body
 }: {
     user: string;
     body: any;
 }) {
-    if (
-        !body?.device_name ||
-        !body?.device_type ||
-        !body?.os ||
-        !body?.csr_pem ||
-        !body?.hardware_key_type
-    ) {
-        throw new Error("Campi obbligatori mancanti per enrollment device");
+    if (!body?.device_name || !body?.device_type || !body?.os || !body?.hardware_key_type) {
+        throw new Error("Campi obbligatori mancanti per challenge enrollment");
     }
 
     if (!allowedDeviceTypes.includes(body.device_type)) {
@@ -31,11 +40,12 @@ export async function enrollDevice({
     }
 
     if (!allowedHardwareKeyTypes.includes(body.hardware_key_type)) {
-        throw new Error("hardware_key_type non valido o non hardware-backed");
+        throw new Error("hardware_key_type non valido o non richiesto");
     }
 
     const db = getDb();
     const deviceId = randomUUID();
+    const challenge = randomBytes(32).toString("base64url");
     const sanUri = `urn:zerotrusthr:device:${deviceId}`;
 
     const deviceDoc = createDevice({
@@ -47,22 +57,83 @@ export async function enrollDevice({
         ip_address: body.ip_address,
         trusted: false,
         hardware_key_type: body.hardware_key_type,
+        enrollment_challenge: challenge,
+        challenge_expires_at: new Date(Date.now() + 5 * 60 * 1000),
         certificate_san_uri: sanUri,
         status: "pending"
     });
 
-    await db.collection("devices").insertOne({
-        ...deviceDoc,
-        csr_pem: body.csr_pem
-    });
+    await db.collection("devices").insertOne(deviceDoc);
 
     return {
-        message: "Device enrollment richiesto",
         device_id: deviceId,
         certificate_san_uri: sanUri,
+        challenge,
         status: "pending"
     };
 }
+
+export async function enrollDevice({ body }: { body: any }) {
+    if (
+      !body?.device_id ||
+      !body?.csr_pem ||
+      !body?.public_key_pem ||
+      !body?.challenge_signature
+    ) {
+      throw new Error("Campi obbligatori mancanti per enrollment device");
+    }
+  
+    const db = getDb();
+  
+    const device = await db.collection("devices").findOne({
+      device_id: body.device_id,
+      status: "pending"
+    });
+  
+    if (!device) {
+      throw new Error("Device pending non trovato");
+    }
+  
+    if (!device.enrollment_challenge || !device.challenge_expires_at) {
+      throw new Error("Challenge enrollment assente");
+    }
+  
+    if (new Date(device.challenge_expires_at).getTime() < Date.now()) {
+      throw new Error("Challenge enrollment scaduta");
+    }
+  
+    const signatureOk = verifyHardwareChallengeSignature({
+      publicKeyPem: body.public_key_pem,
+      challenge: device.enrollment_challenge,
+      signatureBase64: body.challenge_signature
+    });
+  
+    if (!signatureOk) {
+      throw new Error("Firma challenge non valida");
+    }
+  
+    await db.collection("devices").updateOne(
+      { device_id: body.device_id },
+      {
+        $set: {
+          csr_pem: body.csr_pem,
+          public_key_pem: body.public_key_pem,
+          challenge_verified_at: new Date(),
+          updated_at: new Date()
+        },
+        $unset: {
+          enrollment_challenge: "",
+          challenge_expires_at: ""
+        }
+      }
+    );
+  
+    return {
+      message: "Device enrollment verificato",
+      device_id: body.device_id,
+      status: "pending"
+    };
+  }
 
 export async function approveDevice(deviceId: string) {
     const db = getDb();
@@ -91,10 +162,15 @@ export async function approveDevice(deviceId: string) {
         throw new Error("Device pending privo di CSR o SAN URI");
     }
 
+    if (!device.challenge_verified_at || !device.public_key_pem) {
+        throw new Error("Challenge hardware non verificata");
+    }
+
     const certificatePem = await signDeviceCsr({
         csrPem: device.csr_pem,
         deviceId,
-        sanUri: device.certificate_san_uri
+        sanUri: device.certificate_san_uri,
+        publicKeyPem: device.public_key_pem
     });
 
     await db.collection("devices").updateOne(

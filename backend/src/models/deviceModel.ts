@@ -9,6 +9,10 @@ interface CreateDeviceParams {
   ip_address: string;
   trusted?: boolean;
   hardware_key_type?: HardwareKeyType;
+  public_key_pem?: string | null;
+  enrollment_challenge?: string | null;
+  challenge_expires_at?: Date | null;
+  challenge_verified_at?: Date | null;
   certificate_subject?: string | null;
   certificate_san_uri?: string | null;
   ja3_fingerprint?: string | null;
@@ -32,6 +36,10 @@ export function createDevice({
   ip_address,
   trusted = false,
   hardware_key_type = "software",
+  public_key_pem = null,
+  enrollment_challenge = null,
+  challenge_expires_at = null,
+  challenge_verified_at = null,
   certificate_subject = null,
   certificate_san_uri = null,
   ja3_fingerprint = null,
@@ -48,6 +56,10 @@ export function createDevice({
     ip_address,
     trusted,
     hardware_key_type,
+    public_key_pem,
+    enrollment_challenge,
+    challenge_expires_at,
+    challenge_verified_at,
     certificate_subject,
     certificate_san_uri,
     ja3_fingerprint,

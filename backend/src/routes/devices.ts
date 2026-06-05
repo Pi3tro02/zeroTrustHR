@@ -2,15 +2,29 @@
 import { Router } from "express";
 import { requireJwt } from "../middlewares/jwtMiddleware";
 import { requireAdmin } from "../middlewares/adminGuard";
-import { enrollDevice, approveDevice } from "../services/deviceEnrollmentService";
+import { approveDevice, createEnrollmentChallenge, enrollDevice } from "../services/deviceEnrollmentService";
 import { syncTrustedDevicesToOpa } from "../services/opaDeviceSyncService";
 
 const router = Router();
 
+router.post("/challenge", requireJwt, async (req, res) => {
+    try {
+        const result = await createEnrollmentChallenge({
+            user: req.headers["x-user"] as string,
+            body: req.body
+        });
+
+        return res.status(201).json(result);
+    } catch (error) {
+        return res.status(400).json({
+            message: (error as Error).message
+        });
+    }
+});
+
 router.post("/enroll", requireJwt, async (req, res) => {
     try {
         const result = await enrollDevice({
-            user: req.headers["x-user"] as string,
             body: req.body
         });
 

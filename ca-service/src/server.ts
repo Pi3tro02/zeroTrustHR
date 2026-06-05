@@ -20,6 +20,14 @@ interface SignRequest {
   csr_pem?: string;
   device_id?: string;
   san_uri?: string;
+  public_key_pem?: string;
+}
+
+function normalizePem(pem: string): string {
+  return pem
+    .replace(/-----BEGIN PUBLIC KEY-----/g, "")
+    .replace(/-----END PUBLIC KEY-----/g, "")
+    .replace(/\s+/g, "");
 }
 
 function requireServiceToken(req: Request, res: Response, next: NextFunction): void {
@@ -34,8 +42,8 @@ function requireServiceToken(req: Request, res: Response, next: NextFunction): v
 }
 
 function validateSignRequest(body: SignRequest): asserts body is Required<SignRequest> {
-  if (!body.csr_pem || !body.device_id || !body.san_uri) {
-    throw new Error("Campi obbligatori mancanti: csr_pem, device_id, san_uri");
+  if (!body.csr_pem || !body.device_id || !body.san_uri || !body.public_key_pem) {
+    throw new Error("Campi obbligatori mancanti: csr_pem, device_id, san_uri, public_key_pem");
   }
 
   if (!body.san_uri.startsWith(`urn:zerotrusthr:device:${body.device_id}`)) {
@@ -45,9 +53,13 @@ function validateSignRequest(body: SignRequest): asserts body is Required<SignRe
   if (!body.csr_pem.includes("BEGIN CERTIFICATE REQUEST")) {
     throw new Error("CSR non valida");
   }
+
+  if (!body.public_key_pem.includes("BEGIN PUBLIC KEY")) {
+    throw new Error("Public key non valida");
+  }
 }
 
-async function signCsr({ csr_pem, device_id, san_uri }: Required<SignRequest>): Promise<string> {
+async function signCsr({ csr_pem, device_id, san_uri, public_key_pem }: Required<SignRequest>): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "zerotrust-ca-"));
 
   try {
@@ -56,6 +68,18 @@ async function signCsr({ csr_pem, device_id, san_uri }: Required<SignRequest>): 
     const extPath = join(dir, `${device_id}.ext`);
 
     await writeFile(csrPath, csr_pem, "utf8");
+
+    const { stdout: csrPublicKeyPem } = await execFileAsync("openssl", [
+      "req",
+      "-in", csrPath,
+      "-pubkey",
+      "-noout"
+    ]);
+
+    if (normalizePem(csrPublicKeyPem) !== normalizePem(public_key_pem)) {
+      throw new Error("La public key della CSR non coincide con quella verificata via challenge");
+    }
+
     await writeFile(
       extPath,
       [

@@ -213,6 +213,11 @@ static_resources:
 
                       routes:
                         - match:
+                            prefix: "/api/devices/challenge"
+                          route:
+                            cluster: backend_service
+
+                        - match:
                             prefix: "/api/devices/enroll"
                           route:
                             cluster: backend_service

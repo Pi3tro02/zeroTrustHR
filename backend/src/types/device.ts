@@ -11,6 +11,10 @@ export interface Device {
   ip_address: string;
   trusted: boolean;
   hardware_key_type: HardwareKeyType;
+  public_key_pem?: string | null;
+  enrollment_challenge?: string | null;
+  challenge_expires_at?: Date | null;
+  challenge_verified_at?: Date | null;
   certificate_subject?: string | null;
   certificate_san_uri?: string | null;
   ja3_fingerprint?: string | null;
