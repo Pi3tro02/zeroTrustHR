@@ -7,7 +7,7 @@ import { syncTrustedDevicesToOpa } from "./opaDeviceSyncService";
 import { DeviceType, HardwareKeyType } from "../types/device";
 
 const allowedDeviceTypes: DeviceType[] = ["laptop", "desktop", "smartphone", "tablet", "server", "other"];
-const allowedHardwareKeyTypes: HardwareKeyType[] = ["tpm", "secure_enclave"];
+const allowedHardwareKeyTypes: HardwareKeyType[] = ["tpm", "secure_enclave", "software"];
 
 function verifyHardwareChallengeSignature(params: {
     publicKeyPem: string;
@@ -22,6 +22,14 @@ function verifyHardwareChallengeSignature(params: {
         params.publicKeyPem,
         Buffer.from(params.signatureBase64, "base64")
     );
+}
+
+function isHardwareBound(type: HardwareKeyType) {
+    return type === "tpm" || type === "secure_enclave";
+}
+
+function isSoftwareFallback(type: HardwareKeyType) {
+    return type === "software";
 }
 
 export async function createEnrollmentChallenge({
@@ -77,8 +85,7 @@ export async function enrollDevice({ body }: { body: any }) {
     if (
       !body?.device_id ||
       !body?.csr_pem ||
-      !body?.public_key_pem ||
-      !body?.challenge_signature
+      !body?.public_key_pem
     ) {
       throw new Error("Campi obbligatori mancanti per enrollment device");
     }
@@ -93,39 +100,58 @@ export async function enrollDevice({ body }: { body: any }) {
     if (!device) {
       throw new Error("Device pending non trovato");
     }
+
+    const hardwareKeyType = device.hardware_key_type as HardwareKeyType;
   
-    if (!device.enrollment_challenge || !device.challenge_expires_at) {
-      throw new Error("Challenge enrollment assente");
+    if (isHardwareBound(hardwareKeyType)) {
+        if (!body?.challenge_signature) {
+            throw new Error("Firma challenge obbligatoria per device hardware-bound");
+        }
+
+        if (!device.enrollment_challenge || !device.challenge_expires_at) {
+            throw new Error("Challenge enrollment assente");
+          }
+        
+          if (new Date(device.challenge_expires_at).getTime() < Date.now()) {
+            throw new Error("Challenge enrollment scaduta");
+          }
+        
+          const signatureOk = verifyHardwareChallengeSignature({
+            publicKeyPem: body.public_key_pem,
+            challenge: device.enrollment_challenge,
+            signatureBase64: body.challenge_signature
+          });
+        
+          if (!signatureOk) {
+            throw new Error("Firma challenge non valida");
+          }
     }
-  
-    if (new Date(device.challenge_expires_at).getTime() < Date.now()) {
-      throw new Error("Challenge enrollment scaduta");
-    }
-  
-    const signatureOk = verifyHardwareChallengeSignature({
-      publicKeyPem: body.public_key_pem,
-      challenge: device.enrollment_challenge,
-      signatureBase64: body.challenge_signature
-    });
-  
-    if (!signatureOk) {
-      throw new Error("Firma challenge non valida");
-    }
+
+    if (isSoftwareFallback(hardwareKeyType)) {
+        if (!body?.ja3_fingerprint) {
+            throw new Error("JA3 fingerprint obbligatorio per fallback software");
+        }
+    } 
   
     await db.collection("devices").updateOne(
-      { device_id: body.device_id },
-      {
-        $set: {
-          csr_pem: body.csr_pem,
-          public_key_pem: body.public_key_pem,
-          challenge_verified_at: new Date(),
-          updated_at: new Date()
-        },
-        $unset: {
-          enrollment_challenge: "",
-          challenge_expires_at: ""
+        { device_id: body.device_id },
+        {
+            $set: {
+                csr_pem: body.csr_pem,
+                public_key_pem: body.public_key_pem,
+                ja3_fingerprint: isSoftwareFallback(hardwareKeyType)
+                    ? body.ja3_fingerprint
+                    : device.ja3_fingerprint,
+                challenge_verified_at: isHardwareBound(hardwareKeyType)
+                    ? new Date()
+                    : null,
+                updated_at: new Date()
+            },
+            $unset: {
+                enrollment_challenge: "",
+                challenge_expires_at: ""
+            }
         }
-      }
     );
   
     return {
@@ -162,8 +188,18 @@ export async function approveDevice(deviceId: string) {
         throw new Error("Device pending privo di CSR o SAN URI");
     }
 
-    if (!device.challenge_verified_at || !device.public_key_pem) {
+    const hardwareKeyType = device.hardware_key_type as HardwareKeyType;
+
+    if (isHardwareBound(hardwareKeyType) && !device.challenge_verified_at) {
         throw new Error("Challenge hardware non verificata");
+    }
+
+    if (isSoftwareFallback(hardwareKeyType) && !device.ja3_fingerprint) {
+        throw new Error("JA3 fingerprint mancante per fallback software");
+    }
+
+    if (!device.public_key_pem) {
+        throw new Error("Public key device mancante");
     }
 
     const certificatePem = await signDeviceCsr({

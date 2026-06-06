@@ -42,7 +42,7 @@ export async function requireTrustedDevice(req: Request, res: Response, next: Ne
             device_id: deviceId,
             trusted: true,
             status: "active",
-            hardware_key_type: { $in: ["tpm", "secure_enclave", "android_keystore"] }
+            hardware_key_type: { $in: ["tpm", "secure_enclave", "software"] }
         }, {
             $set: {
                 last_seen: new Date(),
@@ -58,7 +58,24 @@ export async function requireTrustedDevice(req: Request, res: Response, next: Ne
             });
         }
 
-        (req as any).device = device;
+        const deviceDocument = device.value ?? device;
+
+        if (deviceDocument.hardware_key_type === "software") {
+            const ja3 = req.headers["x-ja3"];
+
+            if (
+                !ja3 ||
+                typeof ja3 !== "string" ||
+                !deviceDocument.ja3_fingerprint ||
+                ja3 !== deviceDocument.ja3_fingerprint
+            ) {
+                return res.status(403).json({
+                    error: "Software fallback device JA3 mismatch"
+                });
+            }
+        }
+
+        (req as any).device = deviceDocument;
 
         next();
     } catch (error) {

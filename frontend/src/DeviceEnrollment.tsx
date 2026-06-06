@@ -20,7 +20,11 @@ export function DeviceEnrollment() {
   const [csrPem, setCsrPem] = useState("");
   const [publicKeyPem, setPublicKeyPem] = useState("");
   const [challengeSignature, setChallengeSignature] = useState("");
+  const [ja3Fingerprint, setJa3Fingerprint] = useState("");
   const [status, setStatus] = useState("");
+
+  const isSoftwareFallback = hardwareKeyType === "software";
+  const isHardwareBound = hardwareKeyType === "tpm" || hardwareKeyType === "secure_enclave";
 
   async function handleCreateChallenge() {
     setStatus("Creo la challenge di enrollment...");
@@ -46,7 +50,8 @@ export function DeviceEnrollment() {
       deviceId,
       csrPem,
       publicKeyPem,
-      challengeSignature,
+      challengeSignature: isHardwareBound ? challengeSignature : undefined,
+      ja3Fingerprint: isSoftwareFallback ? ja3Fingerprint : undefined
     });
 
     setStatus(`Enrollment verificato: ${result.device_id}`);
@@ -102,6 +107,7 @@ export function DeviceEnrollment() {
           >
             <option value="secure_enclave">Secure Enclave</option>
             <option value="tpm">TPM</option>
+            <option value="software">Software fallback</option>
           </select>
         </label>
 
@@ -112,10 +118,12 @@ export function DeviceEnrollment() {
           <input value={deviceId} onChange={(event) => setDeviceId(event.target.value)} />
         </label>
 
-        <label>
-          Challenge da firmare con device-agent nativo
-          <textarea readOnly value={challenge} />
-        </label>
+        {isHardwareBound && (
+          <label>
+            Challenge da firmare con device-agent nativo
+            <textarea readOnly value={challenge} />
+          </label>
+        )}
 
         <label>
           CSR PEM generata dal device-agent
@@ -123,21 +131,38 @@ export function DeviceEnrollment() {
         </label>
 
         <label>
-          Public key PEM della chiave hardware
+          Public key PEM del dispositivo
           <textarea value={publicKeyPem} onChange={(event) => setPublicKeyPem(event.target.value)} />
         </label>
 
-        <label>
-          Firma challenge in Base64
-          <textarea
-            value={challengeSignature}
-            onChange={(event) => setChallengeSignature(event.target.value)}
-          />
-        </label>
+        {isSoftwareFallback && (
+          <label>
+            JA3 fingerprint 
+            <input 
+              value={ja3Fingerprint}
+              onChange={(event) => setJa3Fingerprint(event.target.value)}
+            />
+          </label>
+        )}
+
+        {isHardwareBound && (
+          <label>
+            Firma challenge in Base64
+            <textarea 
+              value={challengeSignature}
+              onChange={(event) => setChallengeSignature(event.target.value)}
+            />
+          </label>
+        )}
 
         <button
           onClick={handleEnroll}
-          disabled={!deviceId || !csrPem || !publicKeyPem || !challengeSignature}
+          disabled={!deviceId || 
+            !csrPem || 
+            !publicKeyPem || 
+            (isHardwareBound && !challengeSignature) ||
+            (isSoftwareFallback && !ja3Fingerprint)
+          }
         >
           Verifica enrollment
         </button>

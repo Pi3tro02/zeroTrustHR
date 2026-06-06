@@ -7,7 +7,7 @@ export async function syncTrustedDevicesToOpa(): Promise<void> {
     const trustedDevices = await db.collection("devices").find({
         trusted: true,
         status: "active",
-        hardware_key_type: { $in: ["tpm", "secure_enclave", "android_keystore"]}
+        hardware_key_type: { $in: ["tpm", "secure_enclave", "software"]}
     }).project({
         _id: 0,
         device_id: 1,

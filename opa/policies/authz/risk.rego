@@ -154,8 +154,18 @@ _resource_policy_exists if {
     policy.resource_name == h.resource_name
 }
 
+software_fallback_device if {
+    h.trusted_device_record.hardware_key_type == "software"
+}
+
 risk_acceptable if {
+    not software_fallback_device
     risk_score <= risk_threshold
+}
+
+risk_acceptable if {
+    software_fallback_device
+    risk_score <= 0.25
 }
 
 # ──────────────────────────────────────────────

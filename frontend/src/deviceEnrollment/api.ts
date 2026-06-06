@@ -1,4 +1,4 @@
-export type HardwareKeyType = "tpm" | "secure_enclave";
+export type HardwareKeyType = "tpm" | "secure_enclave" | "software";
 
 const ENROLLMENT_BASE_URL = "https://localhost:10001";
 const BACKEND_BASE_URL = "http://localhost:3000";
@@ -44,7 +44,8 @@ export async function enrollDevice(params: {
     deviceId: string;
     csrPem: string;
     publicKeyPem: string;
-    challengeSignature: string;
+    challengeSignature?: string;
+    ja3Fingerprint?: string;
 }) {
     const response = await fetch(`${ENROLLMENT_BASE_URL}/api/devices/enroll`, {
         method: "POST",
@@ -56,7 +57,8 @@ export async function enrollDevice(params: {
             device_id: params.deviceId,
             csr_pem: params.csrPem,
             public_key_pem: params.publicKeyPem,
-            challenge_signature: params.challengeSignature
+            challenge_signature: params.challengeSignature,
+            ja3_fingerprint: params.ja3Fingerprint
         }),
     });
 

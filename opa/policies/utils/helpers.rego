@@ -198,7 +198,16 @@ mfa_enabled if {
 device_trusted if {
 	has_trusted_device_record
 	trusted_device_record.trusted == true
-	trusted_device_record.hardware_key_type in {"tpm", "secure_enclave", "android_keystore"}
+	trusted_device_record.hardware_key_type in {"tpm", "secure_enclave"}
+}
+
+device_trusted if {
+	has_trusted_device_record
+	trusted_device_record.trusted == true
+	trusted_device_record.hardware_key_type == "software"
+	trusted_device_record.ja3_fingerprint != ""
+	header("x-ja3") != ""
+	trusted_device_record.ja3_fingerprint == header("x-ja3")
 }
 
 device_trusted if {
