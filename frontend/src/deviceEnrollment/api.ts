@@ -1,7 +1,7 @@
 export type HardwareKeyType = "tpm" | "secure_enclave" | "software";
 
-const ENROLLMENT_BASE_URL = "https://localhost:10001";
-const BACKEND_BASE_URL = "http://localhost:3000";
+const ENROLLMENT_BASE_URL = import.meta.env.VITE_ENROLLMENT_BASE_URL ?? "https://localhost:10001";
+const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL ?? "http://localhost:3000";
 
 export async function createEnrollmentChallenge(params: {
     jwt: string;

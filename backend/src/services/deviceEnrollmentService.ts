@@ -229,3 +229,75 @@ export async function approveDevice(deviceId: string) {
         certificate_pem: certificatePem
     };
 }
+
+export async function rejectDevice(deviceId: string) {
+    const db = getDb();
+
+    const device = await db.collection("devices").findOne({
+        device_id: deviceId
+    });
+
+    if (!device) {
+        throw new Error("Device non trovato");
+    }
+
+    if (device.status !== "pending") {
+        throw new Error(`Device non rifiutabile nello stato corrente: ${device.status}`);
+    }
+
+    await db.collection("devices").updateOne(
+        { device_id: deviceId },
+        {
+            $set: {
+                trusted: false,
+                status: "suspended",
+                updated_at: new Date()
+            },
+            $unset: {
+                enrollment_challenge: "",
+                challenge_expires_at: ""
+            }
+        }
+    );
+
+    return {
+        message: "Device rifiutato",
+        device_id: deviceId,
+        status: "suspended"
+    };
+}
+
+export async function revokeDevice(deviceId: string) {
+    const db = getDb();
+
+    const device = await db.collection("devices").findOne({
+        device_id: deviceId
+    });
+
+    if (!device) {
+        throw new Error("Device non trovato");
+    }
+
+    if (device.status !== "active") {
+        throw new Error(`Device non revocabile nello stato corrente: ${device.status}`);
+    }
+
+    await db.collection("devices").updateOne(
+        { device_id: deviceId },
+        {
+            $set: {
+                trusted: false,
+                status: "revoked",
+                updated_at: new Date()
+            }
+        }
+    );
+
+    await syncTrustedDevicesToOpa();
+
+    return {
+        message: "Device revocato",
+        device_id: deviceId,
+        status: "revoked"
+    };
+}

@@ -2,6 +2,47 @@ import { getDb } from "./db";
 import { createPolicy } from "../models/policyModel";
 import { createDevice } from "../models/deviceModel";
 import { registerUser } from "../services/authService";
+import { UserRole } from "../types/user";
+
+interface SeedUser {
+  username: string;
+  password: string;
+  role: UserRole;
+  first_name: string;
+  last_name: string;
+  email: string;
+  department: string;
+}
+
+const seedUsers: SeedUser[] = [
+  {
+    username: "alice_hr",
+    password: "alice123",
+    role: "hr",
+    first_name: "Alice",
+    last_name: "Rossi",
+    email: "alice.hr@company.com",
+    department: "HR"
+  },
+  {
+    username: "marco_employee",
+    password: "marco123",
+    role: "employee",
+    first_name: "Marco",
+    last_name: "Bianchi",
+    email: "marco.employee@company.com",
+    department: "Finance"
+  },
+  {
+    username: "demo_customer",
+    password: "demo123",
+    role: "customer",
+    first_name: "Demo",
+    last_name: "Customer",
+    email: "demo.customer@company.com",
+    department: "Customer"
+  }
+];
 
 /**
  * Popola il database con dati iniziali se mancanti.
@@ -97,6 +138,22 @@ export async function seedData(): Promise<void> {
         { _id: existingDevice._id },
         { $set: hardwareBoundDevice }
       );
+    }
+  }
+
+  for (const seedUser of seedUsers) {
+    const existingUser = await db.collection("users").findOne({
+      username: seedUser.username
+    });
+
+    if (!existingUser) {
+      await registerUser({
+        ...seedUser,
+        mfa_enabled: true,
+        created_by: "system"
+      });
+
+      console.log(`Utente seed creato: ${seedUser.username}`);
     }
   }
 

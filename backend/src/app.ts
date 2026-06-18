@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import authRouter from "./routes/auth";
 import deviceRouter from "./routes/devices";
 
 import healthRouter from "./routes/health";
@@ -49,6 +50,7 @@ app.use("/api/access", accessRouter);
 app.use("/api/protected", protectedRouter);
 app.use("/api/splunk-webhook", splunkWebhookRouter);
 app.use("/api/risk", createRiskRoutes(riskController));
+app.use("/api/auth", authRouter);
 app.use("/api/devices", deviceRouter);
 
 export default app;

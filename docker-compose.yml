@@ -127,6 +127,30 @@ services:
         splunk-sourcetype: "backend_node_pino" # Sourcetype di default se non specificato
         tag: "docker-{{.Name}}" # Aiuta a distinguere da quale container arriva
 
+  # ─── Frontend (React / Vite) ────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+    container_name: zerotrust-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_BACKEND_BASE_URL: http://localhost:3000
+      VITE_ENROLLMENT_BASE_URL: https://localhost:10001
+      VITE_PROTECTED_BASE_URL: /zt-protected
+      PROTECTED_PROXY_TARGET: https://envoy:10000
+      PROTECTED_PROXY_CERT: /certs/client.crt
+      PROTECTED_PROXY_KEY: /certs/client.key
+      PROTECTED_PROXY_CA: /certs/ca.crt
+    volumes:
+      - ./envoy/certs:/certs:ro
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - zerotrust_net
+
   # ─── PDP — OPA ───────────────────────────────────────────────────────────────
   opa:
     image: openpolicyagent/opa:1.3.0-envoy-5-static
