@@ -59,6 +59,17 @@
       }
     },
     {
+      "resource_name": "public_products",
+      "resource_sensitivity": "low",
+      "allowed_roles": ["customer"],
+      "allowed_actions": ["read"],
+      "max_risk_score": 0.9,
+      "conditions": {
+        "mfa_required": false,
+        "trusted_device_required": false
+      }
+    },
+    {
       "resource_name": "audit_logs",
       "resource_sensitivity": "critical",
       "allowed_roles": ["admin"],
