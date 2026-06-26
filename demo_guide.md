@@ -123,6 +123,8 @@ Ora che il modello è addestrato, dimostreremo come interviene in tempo reale pe
 In questa fase dimostriamo la capacità dell'architettura di intercettare attacchi di rete diretti (come il Port Scanning) e alzare istantaneamente il rischio, superando le valutazioni del modello.
 
 ### Esecuzione dell'Attacco
+*(Nota: Per un'esperienza completa e per sferrare diverse tipologie di attacchi oltre a quello base mostrato qui sotto, ti consigliamo di aprire ora il file `scripts/network_attacks_guide.md` e seguire i comandi avanzati descritti lì).*
+
 1. Utilizziamo un container Nmap temporaneo per lanciare un "TCP SYN Scan" contro il nostro Proxy Envoy. Esegui:
    ```bash
    docker run --rm --network zerotrusthr_zerotrust_net instrumentisto/nmap -sS -p- -T4 zerotrust-envoy
