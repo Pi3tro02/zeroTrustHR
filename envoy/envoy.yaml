@@ -146,7 +146,7 @@ static_resources:
                       grpc_service:
                         envoy_grpc:
                           cluster_name: opa_ext_authz
-                        timeout: 5s
+                        timeout: 60s
                       failure_mode_allow: false
                       include_peer_certificate: true
                       with_request_body:

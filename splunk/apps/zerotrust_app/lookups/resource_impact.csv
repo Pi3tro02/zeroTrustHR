@@ -1,0 +1,10 @@
+resource_name,action,base_impact
+employee_records,read,0.5
+employee_records,write,0.8
+employee_records,delete,1.0
+financial_data,read,0.6
+financial_data,write,1.0
+public_info,read,0.1
+public_info,write,0.5
+system_config,read,0.7
+system_config,write,1.0

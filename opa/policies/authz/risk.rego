@@ -82,7 +82,7 @@ risk_api_response := resp if {
             "Content-Type": "application/json"
         },
         "body": risk_request_body,
-        "timeout": "5s",
+        "timeout": "60s",
         "cache": false,
         "raise_error": false
     })
@@ -125,13 +125,23 @@ risk_severity := "unknown" if {
     not risk_service_ok
 }
 
-risk_profit := profit if {
+risk_prob_attack := prob if {
     risk_service_ok
-    raw := object.get(risk_api_response.body, "profit", -1)
-    profit := to_number(sprintf("%v", [raw]))
+    raw := object.get(risk_api_response.body, "prob_attack", 0.1)
+    prob := to_number(sprintf("%v", [raw]))
 }
 
-risk_profit := -1 if {
+risk_prob_attack := 0.1 if {
+    not risk_service_ok
+}
+
+risk_impact := impact if {
+    risk_service_ok
+    raw := object.get(risk_api_response.body, "impact", 1.0)
+    impact := to_number(sprintf("%v", [raw]))
+}
+
+risk_impact := 1.0 if {
     not risk_service_ok
 }
 

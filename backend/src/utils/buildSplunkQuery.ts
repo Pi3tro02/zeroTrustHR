@@ -11,60 +11,51 @@ export function buildSplunkQuery(
   const username = escapeSplunkValue(payload.user);
 
   return `
-search index=zerotrust sourcetype=opa_decision earliest=${window} latest=now
-| spath path=line.msg output=msg
-| spath path=line.path output=decision_path
-| search msg="Decision Log" decision_path="authz/response"
-| spath path=line.result.user output=username
-| spath path=line.result.resource output=resource_name
-| spath path=line.result.allowed output=allowed
-| spath path=line.result.deny_reasons{} output=deny_reasons
-| spath path=line.input.attributes.request.http.headers.x-device-ip output=device_ip
-| spath path=line.input.attributes.request.http.headers.x-ja3 output=ja3
-| spath path=line.input.attributes.request.http.headers.x-device-trusted output=device_trusted
-| eval resource_name=replace(resource_name, "-", "_")
-| lookup asset_weights.csv resource_name OUTPUT risk_multiplier benefit_score sensitivity
-| eval risk_multiplier=coalesce(risk_multiplier,1.0)
-| eval benefit_score=coalesce(benefit_score,1.0)
-| eval allowed_str=tostring(allowed)
-| eval trusted_str=lower(tostring(device_trusted))
-| eval is_deny=if(allowed_str="false",1,0)
-| eval is_allow=if(allowed_str="true",1,0)
-| eval deny_reasons_joined=mvjoin(deny_reasons,",")
-| eval is_risk_only_deny=if(is_deny=1 AND deny_reasons_joined="risk_score_too_high",1,0)
-| eval trusted_penalty=if(trusted_str="false",0.5,0)
-| eval event_risk_penalty=((is_deny-is_risk_only_deny)*risk_multiplier)+trusted_penalty
-| eval benefit_gained=is_allow*benefit_score
-| stats
-    sum(event_risk_penalty) AS total_risk
-    sum(benefit_gained) AS total_benefit
-    count(eval(is_deny=1)) AS recent_denies
-    count(eval(is_risk_only_deny=1)) AS risk_only_denies
-    count(eval(is_allow=1)) AS recent_allows
-    dc(device_ip) AS distinct_device_ips
-    dc(ja3) AS distinct_ja3
-    dc(trusted_str) AS distinct_trust_states
-    values(resource_name) AS resources_touched
-    values(sensitivity) AS sensitivities
-    BY username
-| search username="${username}"
-| eval anomaly_penalty=if(distinct_trust_states>1,1.0,0)
-| eval total_risk=total_risk+anomaly_penalty
-| eval profit=total_benefit-total_risk
-| eval risk_cover=if(profit>=0,"OK","VIOLATED")
+search (index=zerotrust sourcetype=opa_decision) OR (index=snort) earliest=${window} latest=now
+| eval is_opa = if(index="zerotrust", 1, 0)
+| eval is_snort = if(index="snort", 1, 0)
+| spath input=_raw path=line.result.allowed output=allowed
+| spath input=_raw path=line.result.user output=username_opa
+| eval is_deny = if(is_opa=1 AND allowed="false", 1, 0)
+| eval device_ip_header = 'line.input.attributes.request.http.headers.x-device-ip'
+| eval src_ip = coalesce(device_ip_header, src_ip, src)
+| eval user_id = coalesce(username_opa, user, "${username}")
+
+| stats 
+    sum(is_deny) AS total_denies
+    count(eval(is_opa=1)) AS total_opa_requests
+    sum(is_snort) AS total_snort_alerts
+    BY user_id, src_ip
+| search user_id="${username}"
+
+| eval deny_ratio = if(total_opa_requests > 0, total_denies / total_opa_requests, 0)
+
+| apply app_risk_model
+| rename "predicted(is_attacker)" as P_app
+| eval P_app = coalesce(P_app, 1 - exp(-0.4 * total_denies))
+
+| eval P_net = if(total_snort_alerts > 0, 0.95, 0.0)
+| eval prob_attack = max(0.1, P_app, P_net)
+
+| eval current_resource = "${payload.request.resource}"
+| eval current_action = "${payload.request.action}"
+| eval current_role = "${payload.role || "employee"}"
+
+| lookup resource_impact.csv resource_name AS current_resource action AS current_action OUTPUT base_impact
+| eval base_impact = coalesce(base_impact, 0.5)
+
+| eval role_mod = case(current_role="admin", 0.2, current_role="hr", 0.1, true(), 0.0)
+| eval impact = min(1.0, base_impact + role_mod)
+
+| eval risk_score = prob_attack * impact
+
 | eval severity=case(
-    profit>=10,"safe",
-    profit>=0,"warning",
-    profit>=-10,"danger",
+    risk_score<0.3,"safe",
+    risk_score<0.6,"warning",
+    risk_score<0.8,"danger",
     true(),"critical"
   )
-| eval risk_score=case(
-    profit>=10,0.2,
-    profit>=0,0.5,
-    profit>-5,0.7,
-    profit>=-10,0.8,
-    true(),0.95
-  )
-| table username risk_score severity profit risk_cover recent_denies risk_only_denies recent_allows distinct_device_ips distinct_ja3 distinct_trust_states
-`.trim();
+
+| table user_id risk_score prob_attack impact severity total_denies total_snort_alerts
+  `.trim();
 }

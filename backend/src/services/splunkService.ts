@@ -35,7 +35,7 @@ export class SplunkService {
       },
       httpsAgent: this.httpsAgent,
       responseType: "text",
-      timeout: 15000
+      timeout: 60000
     });
 
     const raw = response.data as string;
