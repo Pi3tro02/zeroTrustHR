@@ -14,6 +14,30 @@ interface DeviceEnrollmentProps {
   showAdminApprove?: boolean;
 }
 
+function stripJsonStringQuotes(value: string) {
+  const trimmed = value.trim();
+
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return trimmed.slice(1, -1);
+  }
+
+  return trimmed;
+}
+
+function normalizePemInput(value: string) {
+  return stripJsonStringQuotes(value)
+    .replace(/\\n/g, "\n")
+    .replace(/\\\//g, "/")
+    .trim();
+}
+
+function normalizeBase64Input(value: string) {
+  return stripJsonStringQuotes(value)
+    .replace(/\\\//g, "/")
+    .replace(/\s/g, "")
+    .trim();
+}
+
 export function DeviceEnrollment({
   jwt,
   embedded = false,
@@ -100,18 +124,27 @@ export function DeviceEnrollment({
   }
 
   async function handleEnroll() {
-    setStatus("Verifico firma hardware e salvo CSR...");
+    try {
+      setError("");
+      setStatus("Verifico firma hardware e salvo CSR...");
 
-    const result = await enrollDevice({
-      jwt,
-      deviceId,
-      csrPem,
-      publicKeyPem,
-      challengeSignature: isHardwareBound ? challengeSignature : undefined,
-      ja3Fingerprint: isSoftwareFallback ? ja3Fingerprint : undefined
-    });
+      const result = await enrollDevice({
+        jwt,
+        deviceId,
+        csrPem: normalizePemInput(csrPem),
+        publicKeyPem: normalizePemInput(publicKeyPem),
+        challengeSignature: isHardwareBound
+          ? normalizeBase64Input(challengeSignature)
+          : undefined,
+        ja3Fingerprint: isSoftwareFallback ? ja3Fingerprint : undefined
+      });
 
-    setStatus(`Enrollment verificato: ${result.device_id}`);
+      setEnrollmentStatus(result.status);
+      setStatus(`Enrollment verificato: ${result.device_id}`);
+    } catch (error) {
+      setError((error as Error).message);
+      setStatus("");
+    }
   }
 
   async function handleApprove() {

@@ -82,6 +82,14 @@ export async function createEnrollmentChallenge({
 }
 
 export async function enrollDevice({ body }: { body: any }) {
+    console.log("[Device Enrollment] enroll start", {
+        device_id: body?.device_id,
+        has_csr_pem: Boolean(body?.csr_pem),
+        has_public_key_pem: Boolean(body?.public_key_pem),
+        has_challenge_signature: Boolean(body?.challenge_signature),
+        has_ja3_fingerprint: Boolean(body?.ja3_fingerprint)
+    });
+
     if (
       !body?.device_id ||
       !body?.csr_pem ||
@@ -92,6 +100,10 @@ export async function enrollDevice({ body }: { body: any }) {
   
     const db = getDb();
   
+    console.log("[Device Enrollment] looking for pending device", {
+        device_id: body.device_id
+    });
+
     const device = await db.collection("devices").findOne({
       device_id: body.device_id,
       status: "pending"
@@ -102,6 +114,13 @@ export async function enrollDevice({ body }: { body: any }) {
     }
 
     const hardwareKeyType = device.hardware_key_type as HardwareKeyType;
+    console.log("[Device Enrollment] pending device found", {
+        device_id: body.device_id,
+        hardware_key_type: hardwareKeyType,
+        has_challenge: Boolean(device.enrollment_challenge),
+        has_challenge_expires_at: Boolean(device.challenge_expires_at),
+        has_certificate_san_uri: Boolean(device.certificate_san_uri)
+    });
   
     if (isHardwareBound(hardwareKeyType)) {
         if (!body?.challenge_signature) {
@@ -116,10 +135,19 @@ export async function enrollDevice({ body }: { body: any }) {
             throw new Error("Challenge enrollment scaduta");
           }
         
+          console.log("[Device Enrollment] verifying hardware challenge signature", {
+            device_id: body.device_id
+          });
+
           const signatureOk = verifyHardwareChallengeSignature({
             publicKeyPem: body.public_key_pem,
             challenge: device.enrollment_challenge,
             signatureBase64: body.challenge_signature
+          });
+
+          console.log("[Device Enrollment] hardware challenge signature verified", {
+            device_id: body.device_id,
+            signature_ok: signatureOk
           });
         
           if (!signatureOk) {
@@ -133,6 +161,10 @@ export async function enrollDevice({ body }: { body: any }) {
         }
     } 
   
+    console.log("[Device Enrollment] saving CSR and public key", {
+        device_id: body.device_id
+    });
+
     await db.collection("devices").updateOne(
         { device_id: body.device_id },
         {
@@ -153,6 +185,10 @@ export async function enrollDevice({ body }: { body: any }) {
             }
         }
     );
+
+    console.log("[Device Enrollment] enrollment saved", {
+        device_id: body.device_id
+    });
   
     return {
       message: "Device enrollment verificato",

@@ -3,6 +3,26 @@ export type HardwareKeyType = "tpm" | "secure_enclave" | "software";
 const ENROLLMENT_BASE_URL = import.meta.env.VITE_ENROLLMENT_BASE_URL ?? "https://localhost:10001";
 const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL ?? "http://localhost:3000";
 
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 15000) {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+        return await fetch(input, {
+            ...init,
+            signal: controller.signal
+        });
+    } catch (error) {
+        if ((error as Error).name === "AbortError") {
+            throw new Error("Richiesta enrollment scaduta: il servizio non ha risposto entro 15 secondi");
+        }
+
+        throw error;
+    } finally {
+        window.clearTimeout(timeout);
+    }
+}
+
 export async function createEnrollmentChallenge(params: {
     jwt: string;
     deviceName: string;
@@ -10,7 +30,7 @@ export async function createEnrollmentChallenge(params: {
     os: string;
     hardwareKeyType: HardwareKeyType;
 }) {
-    const response = await fetch(`${ENROLLMENT_BASE_URL}/api/devices/challenge`, {
+    const response = await fetchWithTimeout(`${ENROLLMENT_BASE_URL}/api/devices/challenge`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -47,7 +67,7 @@ export async function enrollDevice(params: {
     challengeSignature?: string;
     ja3Fingerprint?: string;
 }) {
-    const response = await fetch(`${ENROLLMENT_BASE_URL}/api/devices/enroll`, {
+    const response = await fetchWithTimeout(`${ENROLLMENT_BASE_URL}/api/devices/enroll`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
