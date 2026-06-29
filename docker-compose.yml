@@ -314,7 +314,15 @@ services:
         splunk-insecureskipverify: "true"
         splunk-format: "json"
         splunk-sourcetype: "nftables_json"
-
+# ─── Kali Linux ────────────────────────────────────────────        
+  kali:
+   image: kalilinux/kali-rolling
+   container_name: zerotrust-kali
+   tty: true
+   stdin_open: true
+   command: ["bash"]
+   networks:
+    - wan_net
 # ─── Reti ────────────────────────────────────────────────────────────────────
 networks:
   zerotrust_net:
@@ -322,7 +330,11 @@ networks:
     ipam:
       config:
         - subnet: 172.20.0.0/24
-
+  wan_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
 # ─── Volumi ──────────────────────────────────────────────────────────────────
 volumes:
   mongo_data:
