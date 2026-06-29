@@ -10,7 +10,12 @@ export class RiskService {
 
   async evaluate(payload: RiskEvaluateRequest): Promise<RiskEvaluateResponse> {
     const query = buildSplunkQuery(payload, this.defaultWindow);
-    const results = await this.splunkService.runSearch(query);
+    let results: any[] = [];
+    try {
+      results = await this.splunkService.runSearch(query);
+    } catch (error: any) {
+      console.warn("Splunk search failed (model might not exist yet):", error.message);
+    }
 
     if (!results || results.length === 0) {
       return {

@@ -66,31 +66,35 @@ def send_request(user_obj, resource, action, ip, trusted=False):
         print(f"Errore di connessione a OPA: {e}")
 
 try:
-    for i in range(1, 51):
-        print(f"\n--- Iterazione {i}/50 ---")
+    for i in range(1, 16):
+        print(f"\n--- Iterazione {i}/15 ---")
         
         # 1. Traffico Legittimo Frequente (Basso rischio)
-        # Nota: alice_hr e bob_dev potrebbero essere bloccati di notte per 'outside_working_hours'
-        send_request(USERS[0], "employee_records", "read", IPS[0], trusted=True)  # Alice -> employee_records
-        send_request(USERS[1], "company_policies", "read", IPS[1], trusted=True)  # Bob -> company_policies
-        send_request(USERS[2], "audit_logs", "read", IPS[2], trusted=True)        # Charlie (Admin) -> audit_logs
-        send_request(USERS[0], "company_policies", "read", IPS[0], trusted=True)  # Alice -> company_policies
-        send_request(USERS[3], "public_products", "read", IPS[3], trusted=False)  # Eve (Customer) -> public_products
+        send_request(USERS[0], "employee_records", "read", IPS[0], trusted=True)
+        time.sleep(0.2)
+        send_request(USERS[1], "company_policies", "read", IPS[1], trusted=True)
+        time.sleep(0.2)
+        send_request(USERS[2], "audit_logs", "read", IPS[2], trusted=True)
+        time.sleep(0.2)
+        send_request(USERS[0], "company_policies", "read", IPS[0], trusted=True)
+        time.sleep(0.2)
+        send_request(USERS[3], "public_products", "read", IPS[3], trusted=False)
+        time.sleep(0.2)
         
-        # 2. Traffico Malevolo / Anomalie (1 o 2 tentativi per iterazione)
+        # 2. Traffico Malevolo / Anomalie
         if i % 3 == 0:
-            # Eve (customer) tenta di accedere ad audit_logs usando IP sempre diversi (Brute Force distribuito)
             random_ip = f"203.0.113.{random.randint(10, 200)}"
             send_request(USERS[3], "audit_logs", "write", random_ip, trusted=False)
+            time.sleep(0.2)
         if i % 4 == 0:
-            # Oscar (employee hackerato) tenta di scaricare i dati HR da IP russi o cinesi
             malicious_ip = f"85.12.1.{random.randint(10, 99)}"
             send_request(USERS[4], "employee_records", "write", malicious_ip, trusted=False)
+            time.sleep(0.2)
         if i % 5 == 0:
-            # Bob (employee) tenta di leggere payroll_data (solo admin autorizzato)
             send_request(USERS[1], "payroll_data", "read", IPS[1], trusted=True)
+            time.sleep(0.2)
 
-        time.sleep(random.uniform(0.5, 1.5))
+        time.sleep(1.0)
         
     print("\nSimulazione completata. I log sono stati inviati a Splunk.")
     

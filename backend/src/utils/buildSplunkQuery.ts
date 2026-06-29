@@ -20,6 +20,10 @@ search ((index=zerotrust sourcetype=opa_decision) OR (index=zerotrust sourcetype
 | spath input=_raw path=line.result.allowed output=allowed
 | spath input=_raw path=line.result.user output=username_opa
 | eval is_deny = if(is_opa=1 AND allowed="false", 1, 0)
+| eval reason_time = if(is_deny=1 AND match('line.result.deny_reasons{}', "outside_working_hours"), 1, 0)
+| eval reason_priv = if(is_deny=1 AND match('line.result.deny_reasons{}', "role_not_allowed|action_not_allowed|department_not_allowed"), 1, 0)
+| eval reason_auth = if(is_deny=1 AND match('line.result.deny_reasons{}', "untrusted_device|device_not_active|mfa_required|ja3_fingerprint_blocked|ip_not_in_allowed_zone|unsupported_os"), 1, 0)
+
 | eval device_ip_header = 'line.input.attributes.request.http.headers.x-device-ip'
 | eval snort_src_ip = coalesce(src_addr, replace(src_ap, ":[0-9]+$", ""), src_ip, src)
 | eval src_ip = if(is_snort=1, snort_src_ip, coalesce(device_ip_header, src_ip, src))
@@ -27,16 +31,21 @@ search ((index=zerotrust sourcetype=opa_decision) OR (index=zerotrust sourcetype
 
 | stats 
     sum(eval(if(is_opa=1 AND user_id="${username}", is_deny, 0))) AS total_denies
+    sum(eval(if(is_opa=1 AND user_id="${username}", reason_time, 0))) AS time_denies
+    sum(eval(if(is_opa=1 AND user_id="${username}", reason_priv, 0))) AS priv_denies
+    sum(eval(if(is_opa=1 AND user_id="${username}", reason_auth, 0))) AS auth_denies
     count(eval(is_opa=1 AND user_id="${username}")) AS total_opa_requests
+    dc(eval(if(is_opa=1 AND user_id="${username}", src_ip, null()))) AS distinct_ips
     sum(eval(if(is_snort=1 AND src_ip="${requestIp}", 1, 0))) AS total_snort_alerts
 | eval user_id="${username}"
 
 | eval deny_ratio = if(total_opa_requests > 0, total_denies / total_opa_requests, 0)
-| fields user_id total_denies total_opa_requests total_snort_alerts deny_ratio
+| fields user_id total_denies time_denies priv_denies auth_denies distinct_ips total_opa_requests total_snort_alerts deny_ratio
 
 | apply app_risk_model
-| rename "predicted(is_attacker)" as P_app
-| eval P_app = coalesce(P_app, 1 - exp(-0.4 * total_denies))
+| eval P_app_prob = 'probability(is_attacker=1)'
+| rename "predicted(is_attacker)" as P_app_pred
+| eval P_app = coalesce(P_app_prob, P_app_pred, 1 - exp(-0.4 * priv_denies - 0.2 * auth_denies - 0.1 * distinct_ips - 0.05 * time_denies))
 
 | eval P_net = if(total_snort_alerts > 0, 0.95, 0.0)
 | eval prob_attack = max(0.1, P_app, P_net)

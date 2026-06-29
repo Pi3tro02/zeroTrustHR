@@ -1,41 +1,45 @@
 # Guida agli Attacchi di Rete (IDS/Snort)
 
-Questo documento contiene i comandi da lanciare tramite Kali Linux (o un qualsiasi container/macchina con i tool di sicurezza installati) per simulare gli attacchi di rete menzionati dal professore.
-Questi attacchi saranno rilevati da Snort, il quale invierà l'alert a Splunk e alzerà istantaneamente il Risk Score (`P_net = 0.95`).
+Questo documento illustra i comandi necessari per simulare gli attacchi di rete. Tali attacchi vengono rilevati dall'Intrusion Detection System (Snort) a livello infrastrutturale, dimostrando la priorità del Rischio di Rete ($P_{net}$) nell'architettura Zero Trust.
 
 ## Prerequisiti
-- Avere installato `nmap` e `hydra` sulla macchina attaccante.
-- Identificare l'IP del container Envoy (es. `172.20.0.10` o localhost `127.0.0.1` se stai testando da fuori Docker, ma è meglio lanciare da dentro la rete Docker `zerotrust_net`).
+- È possibile utilizzare container Docker usa-e-getta (già inclusi nei comandi sottostanti) per lanciare gli attacchi direttamente all'interno della rete locale `zerotrusthr_zerotrust_net`, simulando un nodo compromesso.
 
 ---
 
 ## 1. Port Scanning (Nmap)
 
-La scansione delle porte serve a trovare i servizi esposti in modo aggressivo. Snort dovrebbe avere regole attive per rilevare pacchetti SYN o scan aggressivi.
+La scansione delle porte viene utilizzata per mappare i servizi esposti. Snort è configurato per intercettare raffiche di pacchetti TCP SYN anomale.
 
-**Comando per un TCP SYN Scan rapido su tutte le porte:**
+**Comando per lanciare l'attacco tramite container Docker:**
 ```bash
-nmap -sS -p- -T4 <IP_ENVOY>
+docker run --rm --network zerotrusthr_zerotrust_net instrumentisto/nmap -sS -p- -T4 zerotrust-envoy
 ```
 
-**Comando per un Aggressive Scan (rileva OS e versioni):**
-```bash
-nmap -A -p 10000,10001 <IP_ENVOY>
-```
-
-*Risultato atteso*: Snort rileva la scansione e genera alert di tipo "Attempted Information Leak" o "Portscan". La Probabilità di Rete sale a 0.95.
+**Verifica su Splunk:**
+1. Accedere all'interfaccia web di Splunk.
+2. Eseguire la seguente query:
+   ```spl
+   search index=zerotrust sourcetype=_json 
+   | search "Nmap" OR "alert"
+   | table msg src_addr dst_addr proto action
+   ```
+3. **Risultato atteso**: Comparirà l'alert `Nmap Scan Detected (Port 10000)` con l'indirizzo IP della sorgente. Da questo momento, qualsiasi richiesta proveniente da quell'IP riceverà un Risk Score di rete elevatissimo ($P_{net} = 0.95$), causando il blocco immediato dell'utente da parte del policy engine.
 
 ---
 
-## 2. Password Brute Force (Hydra)
+## 2. Password Brute Force (Hydra) su endpoint mTLS
 
-Sebbene Envoy termini mTLS e non gestisca direttamente una password SSH/FTP, possiamo simulare un attacco Brute Force HTTP verso l'endpoint di login del backend tramite il proxy Envoy.
+In questo test viene sferrato un attacco HTTP Brute Force contro il proxy Envoy, per dimostrare l'efficacia del livello di sicurezza perimetrale (mTLS).
 
-**Comando per Brute Force su endpoint Login:**
-*(Sostituisci `<IP_ENVOY>` e crea un file `passwords.txt` con le password comuni)*
+**Preparazione (creazione wordlist):**
+Creare un file `passwords.txt` nella cartella di progetto contenente alcune password di test (es. `admin`, `password`, `123456`).
 
+**Comando per lanciare l'attacco tramite container Docker:**
 ```bash
-hydra -l admin -P passwords.txt -s 10000 <IP_ENVOY> http-post-form "/api/auth/login:username=^USER^&password=^PASS^:F=Unauthorized"
+docker run --rm -v "${PWD}/passwords.txt:/passwords.txt" --network zerotrusthr_zerotrust_net secsi/hydra -l admin -P /passwords.txt -s 10000 zerotrust-envoy http-post-form "/api/auth/login:username=^USER^&password=^PASS^:F=Unauthorized"
 ```
 
-*Risultato atteso*: Centinaia di richieste HTTP fallite in pochi secondi verranno intercettate da Snort se configurato per "HTTP Brute Force" o viste come anomalia di picco dal proxy. Questo farà schizzare la componente `P_net` del rischio.
+**Risultato atteso (Defense in Depth):**
+L'attacco fallirà quasi istantaneamente con un errore di rete (es. `1 target did not resolve or could not be connected`). Questo rappresenta un successo architetturale: Envoy, aspettandosi un handshake mTLS crittografato, rifiuta e chiude immediatamente le connessioni HTTP inviate in chiaro dall'attaccante. 
+Questo livello di difesa perimetrale garantisce la neutralizzazione degli attacchi grossolani a monte, prima ancora che raggiungano l'Intrusion Detection System o il motore predittivo di Machine Learning.
