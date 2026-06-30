@@ -26,8 +26,12 @@ function stripJsonStringQuotes(value: string) {
 
 function normalizePemInput(value: string) {
   return stripJsonStringQuotes(value)
+    .replace(/\\r\\n/g, "\n")
     .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "\n")
     .replace(/\\\//g, "/")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
     .trim();
 }
 
