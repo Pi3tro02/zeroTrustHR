@@ -41,5 +41,6 @@ docker run --rm -v "${PWD}/passwords.txt:/passwords.txt" --network zerotrusthr_z
 ```
 
 **Risultato atteso (Defense in Depth):**
-L'attacco fallirà quasi istantaneamente con un errore di rete (es. `1 target did not resolve or could not be connected`). Questo rappresenta un successo architetturale: Envoy, aspettandosi un handshake mTLS crittografato, rifiuta e chiude immediatamente le connessioni HTTP inviate in chiaro dall'attaccante. 
-Questo livello di difesa perimetrale garantisce la neutralizzazione degli attacchi grossolani a monte, prima ancora che raggiungano l'Intrusion Detection System o il motore predittivo di Machine Learning.
+L'attacco fallirà quasi istantaneamente riportando `1 of 1 target completed, 0 valid password found` per ogni tentativo. 
+Questo rappresenta un successo architetturale: Envoy, aspettandosi un handshake mTLS crittografato (con certificato client valido), rifiuta a livello di protocollo le connessioni inviate dall'attaccante. Hydra interpreta queste repulsioni immediate come tentativi falliti. 
+Questo livello di difesa perimetrale garantisce la neutralizzazione degli attacchi grossolani a monte, prima ancora che raggiungano il backend, l'Intrusion Detection System o il motore predittivo.

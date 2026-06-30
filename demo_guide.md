@@ -144,9 +144,12 @@ In questa fase viene dimostrata la capacità dell'architettura di intercettare a
 ### Verifica su Splunk
 1. Tornare su Splunk ed eseguire la ricerca dedicata all'IDS:
    ```spl
-   search index=zerotrust sourcetype=_json 
-   | search "Nmap" OR "alert"
-   | table msg src_addr dst_addr proto action
+   search index=zerotrust sourcetype=_json "alert"
+   | spath input=_raw path=msg output=alert_message
+   | spath input=_raw path=src_addr output=source_ip
+   | search alert_message="*Nmap*" OR alert_message="*Brute Force*"
+   | eval network_risk_score = 0.95
+   | table source_ip, alert_message, network_risk_score
    ```
 2. **Risultato atteso**: Comparirà l'evento `Nmap Scan Detected` con l'indirizzo IP della sorgente. Il sistema, rilevando questo evento, assocerà all'IP un $P_{net}$ elevatissimo (es. 0.95), bloccando preventivamente le richieste future da quel nodo.
 
