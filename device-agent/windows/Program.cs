@@ -1,4 +1,5 @@
 using System;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 if (args.Length != 3)
@@ -51,6 +52,22 @@ try
 }
 catch (Exception error)
 {
+    if (error is CryptographicException cryptoError)
+    {
+        Console.Error.WriteLine($"""
+        Errore TPM/CNG: {cryptoError.Message}
+
+        Verifiche sul PC Windows:
+          1. Apri PowerShell come amministratore.
+          2. Esegui: Get-Tpm
+          3. Controlla che TpmPresent=True e TpmReady=True.
+          4. Se TpmReady=False, apri tpm.msc e verifica che il TPM sia inizializzato/abilitato.
+
+        Nota: non eseguire Clear-Tpm senza prima verificare BitLocker/chiavi di ripristino.
+        """);
+        Environment.Exit(1);
+    }
+
     Console.Error.WriteLine(error.Message);
     Environment.Exit(1);
 }

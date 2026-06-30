@@ -10,9 +10,9 @@ public static class TpmIdentity
 
     public static CngKey CreateOrLoadNonExportableTpmKey()
     {
-        if (CngKey.Exists(KeyName, TpmProvider, CngKeyOpenOptions.MachineKey))
+        if (CngKey.Exists(KeyName, TpmProvider))
         {
-            return CngKey.Open(KeyName, TpmProvider, CngKeyOpenOptions.MachineKey);
+            return CngKey.Open(KeyName, TpmProvider);
         }
 
         return CreateNonExportableTpmKey();
@@ -23,7 +23,6 @@ public static class TpmIdentity
         var parameters = new CngKeyCreationParameters
         {
             Provider = TpmProvider,
-            KeyCreationOptions = CngKeyCreationOptions.MachineKey,
             ExportPolicy = CngExportPolicies.None
         };
 
