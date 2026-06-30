@@ -1,5 +1,6 @@
 using System;
 using System.Security.Cryptography;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 if (args.Length != 3)
@@ -46,6 +47,7 @@ try
 
     Console.WriteLine(JsonSerializer.Serialize(output, new JsonSerializerOptions
     {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     }));

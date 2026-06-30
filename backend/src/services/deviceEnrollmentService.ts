@@ -32,6 +32,31 @@ function isSoftwareFallback(type: HardwareKeyType) {
     return type === "software";
 }
 
+function normalizePemInput(value: string) {
+    return value
+        .trim()
+        .replace(/^"|"$/g, "")
+        .replace(/\\u002B/gi, "+")
+        .replace(/\\u002F/gi, "/")
+        .replace(/\\r\\n/g, "\n")
+        .replace(/\\n/g, "\n")
+        .replace(/\\r/g, "\n")
+        .replace(/\\\//g, "/")
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        .trim();
+}
+
+function normalizeBase64Input(value: string) {
+    return value
+        .trim()
+        .replace(/^"|"$/g, "")
+        .replace(/\\u002B/gi, "+")
+        .replace(/\\u002F/gi, "/")
+        .replace(/\\\//g, "/")
+        .replace(/\s/g, "");
+}
+
 export async function createEnrollmentChallenge({
     user,
     body
@@ -97,6 +122,12 @@ export async function enrollDevice({ body }: { body: any }) {
     ) {
       throw new Error("Campi obbligatori mancanti per enrollment device");
     }
+
+    const normalizedCsrPem = normalizePemInput(body.csr_pem);
+    const normalizedPublicKeyPem = normalizePemInput(body.public_key_pem);
+    const normalizedChallengeSignature = body.challenge_signature
+        ? normalizeBase64Input(body.challenge_signature)
+        : undefined;
   
     const db = getDb();
   
@@ -123,7 +154,7 @@ export async function enrollDevice({ body }: { body: any }) {
     });
   
     if (isHardwareBound(hardwareKeyType)) {
-        if (!body?.challenge_signature) {
+        if (!normalizedChallengeSignature) {
             throw new Error("Firma challenge obbligatoria per device hardware-bound");
         }
 
@@ -140,9 +171,9 @@ export async function enrollDevice({ body }: { body: any }) {
           });
 
           const signatureOk = verifyHardwareChallengeSignature({
-            publicKeyPem: body.public_key_pem,
+            publicKeyPem: normalizedPublicKeyPem,
             challenge: device.enrollment_challenge,
-            signatureBase64: body.challenge_signature
+            signatureBase64: normalizedChallengeSignature
           });
 
           console.log("[Device Enrollment] hardware challenge signature verified", {
@@ -169,8 +200,8 @@ export async function enrollDevice({ body }: { body: any }) {
         { device_id: body.device_id },
         {
             $set: {
-                csr_pem: body.csr_pem,
-                public_key_pem: body.public_key_pem,
+                csr_pem: normalizedCsrPem,
+                public_key_pem: normalizedPublicKeyPem,
                 ja3_fingerprint: isSoftwareFallback(hardwareKeyType)
                     ? body.ja3_fingerprint
                     : device.ja3_fingerprint,
