@@ -6,12 +6,23 @@ using System.Text;
 public static class TpmIdentity
 {
     private const string KeyName = "ZeroTrustHR-Device-Identity";
+    private static readonly CngProvider TpmProvider = new("Microsoft Platform Crypto Provider");
 
-    public static CngKey CreateNonExportableTpmKey()
+    public static CngKey CreateOrLoadNonExportableTpmKey()
+    {
+        if (CngKey.Exists(KeyName, TpmProvider, CngKeyOpenOptions.MachineKey))
+        {
+            return CngKey.Open(KeyName, TpmProvider, CngKeyOpenOptions.MachineKey);
+        }
+
+        return CreateNonExportableTpmKey();
+    }
+
+    private static CngKey CreateNonExportableTpmKey()
     {
         var parameters = new CngKeyCreationParameters
         {
-            Provider = new CngProvider("Microsoft Platform Crypto Provider"),
+            Provider = TpmProvider,
             KeyCreationOptions = CngKeyCreationOptions.MachineKey,
             ExportPolicy = CngExportPolicies.None
         };
@@ -27,18 +38,36 @@ public static class TpmIdentity
         return CngKey.Create(CngAlgorithm.Rsa, KeyName, parameters);
     }
 
-    public static byte[] CreateCertificateRequestDer(CngKey key)
+    public static byte[] CreateCertificateRequestDer(CngKey key, string deviceId)
     {
         using var rsa = new RSACng(key);
 
         var request = new CertificateRequest(
-            "CN=zerotrusthr-device,O=ZeroTrustHR,OU=tpm",
+            $"CN=zerotrusthr-device,O=ZeroTrustHR,OU=tpm,SERIALNUMBER={deviceId}",
             rsa,
             HashAlgorithmName.SHA256,
             RSASignaturePadding.Pkcs1
         );
 
         return request.CreateSigningRequest();
+    }
+
+    public static byte[] ExportPublicKeyDer(CngKey key)
+    {
+        using var rsa = new RSACng(key);
+        return rsa.ExportSubjectPublicKeyInfo();
+    }
+
+    public static byte[] SignChallenge(CngKey key, string challenge)
+    {
+        using var rsa = new RSACng(key);
+        var challengeBytes = Encoding.UTF8.GetBytes(challenge);
+
+        return rsa.SignData(
+            challengeBytes,
+            HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1
+        );
     }
 
     public static string ToPem(string label, byte[] der)
