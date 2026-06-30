@@ -1,6 +1,6 @@
 # 🛡️ ZeroTrustHR
 
-Un'architettura Zero Trust all'avanguardia per la gestione sicura delle risorse umane. Il sistema implementa una valutazione dinamica del rischio in tempo reale basata su Machine Learning e analisi del traffico di rete, garantendo una postura di sicurezza adattiva (*Defense in Depth*).
+Un'architettura Zero Trust all'avanguardia per la gestione sicura delle risorse umane. Il sistema implementa una valutazione dinamica del rischio in tempo reale basata su Machine Learning e analisi del traffico di rete, garantendo una difesa adattiva
 
 ---
 
@@ -46,7 +46,7 @@ Dove:
 
 ---
 
-## 🚀 Configurazione e Avvio
+## Configurazione e Avvio
 
 ### Prerequisiti
 - **Docker** e **Docker Compose** installati.
@@ -75,7 +75,7 @@ docker-compose up --build -d
 *Attendi qualche minuto affinché Splunk sia online su `http://localhost:8000`.*
 
 ### 3. Setup delle App di Machine Learning
-Installa i pacchetti AI bypassando l'interfaccia web per evitare timeout (sostituisci i percorsi con quelli reali in cui hai scaricato i `.tgz`):
+Installa i pacchetti bypassando l'interfaccia web per evitare timeout (sostituisci i percorsi con quelli reali in cui hai scaricato i `.tgz`):
 ```bash
 docker cp "C:\Percorso\python-for-scientific-computing.tgz" zerotrust-splunk:/tmp/
 docker cp "C:\Percorso\splunk-ai-toolkit.tgz" zerotrust-splunk:/tmp/
@@ -88,7 +88,7 @@ docker-compose restart splunk
 
 ---
 
-## 🧪 Guide alle Simulazioni e Test
+##  Guide alle Simulazioni e Test
 
 Il progetto include script e configurazioni specifiche per dimostrare la resilienza dell'architettura in vari scenari.
 
