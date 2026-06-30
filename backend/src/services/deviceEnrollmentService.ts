@@ -36,6 +36,8 @@ function normalizePemInput(value: string) {
     return value
         .trim()
         .replace(/^"|"$/g, "")
+        .replace(/\\u002B/gi, "+")
+        .replace(/\\u002F/gi, "/")
         .replace(/\\r\\n/g, "\n")
         .replace(/\\n/g, "\n")
         .replace(/\\r/g, "\n")
@@ -49,6 +51,8 @@ function normalizeBase64Input(value: string) {
     return value
         .trim()
         .replace(/^"|"$/g, "")
+        .replace(/\\u002B/gi, "+")
+        .replace(/\\u002F/gi, "/")
         .replace(/\\\//g, "/")
         .replace(/\s/g, "");
 }

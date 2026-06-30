@@ -26,6 +26,8 @@ function stripJsonStringQuotes(value: string) {
 
 function normalizePemInput(value: string) {
   return stripJsonStringQuotes(value)
+    .replace(/\\u002B/gi, "+")
+    .replace(/\\u002F/gi, "/")
     .replace(/\\r\\n/g, "\n")
     .replace(/\\n/g, "\n")
     .replace(/\\r/g, "\n")
@@ -37,6 +39,8 @@ function normalizePemInput(value: string) {
 
 function normalizeBase64Input(value: string) {
   return stripJsonStringQuotes(value)
+    .replace(/\\u002B/gi, "+")
+    .replace(/\\u002F/gi, "/")
     .replace(/\\\//g, "/")
     .replace(/\s/g, "")
     .trim();
