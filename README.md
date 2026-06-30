@@ -1,10 +1,10 @@
-# 🛡️ ZeroTrustHR
+# ZeroTrustHR
 
 Un'architettura Zero Trust all'avanguardia per la gestione sicura delle risorse umane. Il sistema implementa una valutazione dinamica del rischio in tempo reale basata su Machine Learning e analisi del traffico di rete, garantendo una difesa adattiva
 
 ---
 
-## 🏗️ Architettura del Sistema
+## Architettura del Sistema
 
 L'architettura Zero Trust si fonda su componenti chiave che collaborano per calcolare il rischio in tempo reale:
 
@@ -18,22 +18,22 @@ L'architettura Zero Trust si fonda su componenti chiave che collaborano per calc
 
 ---
 
-## 🛠️ Strumenti e Tecnologie
+## Strumenti e Tecnologie
 
-- 🐳 **Docker & Docker Compose**: Containerizzazione dell'intera infrastruttura per una facile riproducibilità.
-- 🟢 **Node.js & TypeScript**: Backend API e microservizio CA interno.
-- ⚛️ **React & Vite**: Frontend reattivo e veloce.
-- 🍃 **MongoDB**: Database NoSQL per la conservazione sicura dei dati HR.
-- 🛡️ **OPA (Open Policy Agent)**: Motore di regole per l'autorizzazione a grana fine e il calcolo dell'impatto.
-- 🌐 **Envoy Proxy**: Edge proxy ad alte prestazioni e gestione mTLS.
-- 📊 **Splunk**: SIEM centralizzato, dashboard e Machine Learning Toolkit (AITK).
-- 🐽 **Snort 3**: Intrusion Detection System per l'ispezione profonda dei pacchetti.
-- 🧱 **nftables**: Firewall di rete avanzato.
-- 🐉 **Kali Linux**: Ambiente (via container) dedicato per simulazioni avanzate di attacchi di rete.
+- **Docker & Docker Compose**: Containerizzazione dell'intera infrastruttura per una facile riproducibilità.
+- **Node.js & TypeScript**: Backend API e microservizio CA interno.
+- **React & Vite**: Frontend reattivo e veloce.
+- **MongoDB**: Database NoSQL per la conservazione sicura dei dati HR.
+- **OPA (Open Policy Agent)**: Motore di regole per l'autorizzazione a grana fine e il calcolo dell'impatto.
+- **Envoy Proxy**: Edge proxy ad alte prestazioni e gestione mTLS.
+- **Splunk**: SIEM centralizzato, dashboard e Machine Learning Toolkit (AITK).
+- **Snort 3**: Intrusion Detection System per l'ispezione profonda dei pacchetti.
+- **nftables**: Firewall di rete avanzato.
+- **Kali Linux**: Ambiente (via container) dedicato per simulazioni avanzate di attacchi di rete.
 
 ---
 
-## 🧠 Modello di Calcolo del Rischio
+## Modello di Calcolo del Rischio
 
 Il cuore dell'architettura è la valutazione matematica e continua della minaccia, calcolata per ogni singola richiesta:
 
@@ -88,7 +88,7 @@ docker-compose restart splunk
 
 ---
 
-##  Guide alle Simulazioni e Test
+##  Guide alle Simulazioni e Test di Splunk
 
 Il progetto include script e configurazioni specifiche per dimostrare la resilienza dell'architettura in vari scenari.
 
@@ -119,8 +119,13 @@ docker run --rm --network zerotrusthr_zerotrust_net instrumentisto/nmap -sS -p- 
 docker run --rm -v "${PWD}/passwords.txt:/passwords.txt" --network zerotrusthr_zerotrust_net secsi/hydra -l admin -P /passwords.txt -s 10000 zerotrust-envoy http-post-form "/api/auth/login:username=^USER^&password=^PASS^:F=Unauthorized"
 ```
 
+
+## Guide alle simluzioni e test su nftables
+
+Guardare il file [README.md](nftables/README.md).
+
 ---
 
 > [!TIP]
-> 📚 **Documentazione Completa**
+> **Documentazione Completa**
 > Per maggiori approfondimenti e istruzioni estese passo-passo, fai riferimento ai file [demo_guide.md](demo_guide.md) e [network_attacks_guide.md](scripts/network_attacks_guide.md).
