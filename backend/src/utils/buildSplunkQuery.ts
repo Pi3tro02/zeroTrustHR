@@ -45,7 +45,8 @@ search ((index=zerotrust sourcetype=opa_decision) OR (index=zerotrust sourcetype
 | apply app_risk_model
 | eval P_app_prob = 'probability(is_attacker=1)'
 | rename "predicted(is_attacker)" as P_app_pred
-| eval P_app = coalesce(P_app_prob, P_app_pred, 1 - exp(-0.4 * priv_denies - 0.2 * auth_denies - 0.1 * distinct_ips - 0.05 * time_denies))
+| eval formula_risk = 1 - exp(-0.4 * priv_denies - 0.2 * auth_denies - 0.1 * distinct_ips - 0.05 * time_denies)
+| eval P_app = if(isnotnull(P_app_prob), P_app_prob, max(coalesce(P_app_pred, 0), formula_risk))
 
 | eval P_net = if(total_snort_alerts > 0, 0.95, 0.0)
 | eval prob_attack = max(0.1, P_app, P_net)
@@ -54,7 +55,18 @@ search ((index=zerotrust sourcetype=opa_decision) OR (index=zerotrust sourcetype
 | eval current_action = "${payload.request.action}"
 | eval current_role = "${payload.role || "employee"}"
 
-| eval base_impact = 0.5
+| eval base_impact = case(
+    current_resource="employee_records" AND current_action="read", 0.5,
+    current_resource="employee_records" AND current_action="write", 0.8,
+    current_resource="employee_records" AND current_action="delete", 1.0,
+    current_resource="financial_data" AND current_action="read", 0.6,
+    current_resource="financial_data" AND current_action="write", 1.0,
+    current_resource="public_info" AND current_action="read", 0.1,
+    current_resource="public_info" AND current_action="write", 0.5,
+    current_resource="system_config" AND current_action="read", 0.7,
+    current_resource="system_config" AND current_action="write", 1.0,
+    true(), 0.5
+  )
 
 | eval role_mod = case(current_role="admin", 0.2, current_role="hr", 0.1, true(), 0.0)
 | eval impact = min(1.0, base_impact + role_mod)

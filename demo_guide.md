@@ -13,7 +13,7 @@ Il rischio finale viene valutato come: **$max(P_{app}, P_{net}) \times Impatto$*
 
 ### Come viene calcolato l'Impatto?
 L'**Impatto** misura il potenziale danno in caso di esfiltrazione o abuso. Viene determinato combinando:
-- **La criticità della risorsa e il tipo di azione**: Splunk utilizza una tabella interna (`resource_impact.csv`) per valutare non solo quale risorsa viene richiesta, ma con quale modalità (es. `read` vs `write`). Leggere i dati finanziari (`financial_data`, `read`) ha un impatto molto alto, ma sovrascriverli o cancellarli (`financial_data`, `write`) ha un impatto ancora più devastante e farà schizzare la severità al massimo, a parità di risorsa.
+- **La criticità della risorsa e il tipo di azione**: Il calcolo dell'impatto base è implementato dinamicamente all'interno della query stessa (tramite uno statement matematico `case`). Questo garantisce la massima velocità ed evita problemi di permessi incrociati tra le varie App di Splunk. Leggere i dati finanziari (`financial_data`, `read`) ha un impatto molto alto, ma sovrascriverli o cancellarli (`financial_data`, `write`) ha un impatto ancora più devastante e farà schizzare la severità al massimo, a parità di risorsa.
 - **Il livello di privilegio dell'utente**: Se l'utente è un amministratore (`admin`) o ha un ruolo delicato (`hr`), viene sommata una penalità extra (+0.2 o +0.1) all'impatto base, poiché la compromissione di un utente privilegiato causa danni strutturali più gravi. Il totale è limitato a un massimo di 1.0.
 
 ---
